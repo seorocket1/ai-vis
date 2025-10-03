@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import DashboardLayout from '../components/DashboardLayout';
-import { Plus, Edit2, Trash2, X, Play, Clock, Target, TrendingUp, Activity, Calendar } from 'lucide-react';
+import { Plus, CreditCard as Edit2, Trash2, X, Play, Clock, Target, TrendingUp, Activity, Calendar } from 'lucide-react';
 
 interface Prompt {
   id: string;
