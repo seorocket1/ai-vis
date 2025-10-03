@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import DashboardLayout from '../components/DashboardLayout';
-import { Save, CreditCard, User } from 'lucide-react';
+import { Save, CreditCard, User, Key } from 'lucide-react';
 
 export default function Settings() {
   const { user } = useAuth();
@@ -11,6 +11,9 @@ export default function Settings() {
   const [profile, setProfile] = useState<any>(null);
   const [brandName, setBrandName] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState('');
 
   useEffect(() => {
     loadProfile();
@@ -47,6 +50,29 @@ export default function Settings() {
 
     setSaving(false);
     loadProfile();
+  };
+
+  const handlePasswordChange = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      setPasswordMessage('Password must be at least 6 characters');
+      return;
+    }
+
+    setChangingPassword(true);
+    setPasswordMessage('');
+
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword
+    });
+
+    if (error) {
+      setPasswordMessage('Error: ' + error.message);
+    } else {
+      setPasswordMessage('Password changed successfully!');
+      setNewPassword('');
+    }
+
+    setChangingPassword(false);
   };
 
   if (loading) {
@@ -122,6 +148,48 @@ export default function Settings() {
               >
                 <Save className="w-5 h-5" />
                 {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-amber-100 rounded-lg">
+                <Key className="w-5 h-5 text-amber-600" />
+              </div>
+              <h2 className="text-xl font-bold text-slate-900">Change Password</h2>
+            </div>
+
+            <div className="space-y-4">
+              {passwordMessage && (
+                <div className={`p-4 rounded-lg text-sm ${
+                  passwordMessage.includes('Error')
+                    ? 'bg-red-50 text-red-700'
+                    : 'bg-green-50 text-green-700'
+                }`}>
+                  {passwordMessage}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Enter new password (min 6 characters)"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
+                />
+              </div>
+
+              <button
+                onClick={handlePasswordChange}
+                disabled={changingPassword || !newPassword}
+                className="bg-amber-600 text-white px-6 py-3 rounded-lg hover:bg-amber-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {changingPassword ? 'Changing...' : 'Change Password'}
               </button>
             </div>
           </div>

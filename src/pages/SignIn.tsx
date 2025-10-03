@@ -7,6 +7,7 @@ export default function SignIn() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [resetSent, setResetSent] = useState(false);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,6 +25,28 @@ export default function SignIn() {
     } else {
       window.location.href = '/dashboard';
     }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError('Please enter your email address');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/signin`,
+    });
+
+    if (error) {
+      setError(error.message);
+    } else {
+      setResetSent(true);
+    }
+
+    setLoading(false);
   };
 
   return (
@@ -46,6 +69,12 @@ export default function SignIn() {
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
               {error}
+            </div>
+          )}
+
+          {resetSent && (
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+              Password reset link sent! Check your email.
             </div>
           )}
 
@@ -88,6 +117,16 @@ export default function SignIn() {
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
+
+          <div className="mt-4 text-center">
+            <button
+              onClick={handleForgotPassword}
+              disabled={loading}
+              className="text-blue-600 text-sm hover:text-blue-700 transition-colors font-medium"
+            >
+              Forgot password?
+            </button>
+          </div>
 
           <div className="mt-6 text-center">
             <p className="text-slate-600">

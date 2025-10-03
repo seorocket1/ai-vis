@@ -11,6 +11,7 @@ import Analytics from './pages/Analytics';
 import Competitors from './pages/Competitors';
 import CompetitorAnalysis from './pages/CompetitorAnalysis';
 import Settings from './pages/Settings';
+import Admin from './pages/Admin';
 import ProtectedRoute from './components/ProtectedRoute';
 
 export default function Router() {
@@ -114,6 +115,14 @@ export default function Router() {
     return (
       <ProtectedRoute>
         <Settings />
+      </ProtectedRoute>
+    );
+  }
+
+  if (currentPath === '/admin') {
+    return (
+      <ProtectedRoute>
+        <Admin />
       </ProtectedRoute>
     );
   }

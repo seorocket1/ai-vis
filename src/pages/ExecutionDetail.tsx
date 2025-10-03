@@ -9,6 +9,7 @@ import remarkGfm from 'remark-gfm';
 export default function ExecutionDetail() {
   const { user } = useAuth();
   const [execution, setExecution] = useState<any>(null);
+  const [promptData, setPromptData] = useState<any>(null);
   const [allExecutions, setAllExecutions] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -35,9 +36,15 @@ export default function ExecutionDetail() {
       supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
     ]);
 
+    let promptResult = { data: null };
+    if (executionResult.data?.prompt_id) {
+      promptResult = await supabase.from('prompts').select('text').eq('id', executionResult.data.prompt_id).maybeSingle();
+    }
+
     const currentExecution = executionResult.data;
     setExecution(currentExecution);
     setProfile(profileResult.data);
+    if (promptResult.data) setPromptData(promptResult.data);
 
     if (currentExecution?.prompt_id) {
       const { data: relatedExecutions } = await supabase
@@ -149,7 +156,7 @@ export default function ExecutionDetail() {
 
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-4">
-            <h1 className="text-3xl font-bold text-slate-900">{execution.prompt_text || 'Analysis'}</h1>
+            <h1 className="text-3xl font-bold text-slate-900">{promptData?.text || execution.prompt_text || 'Query'} - Analysis</h1>
           </div>
           <p className="text-slate-600 text-lg mb-4">Multi-Platform Analysis</p>
 
@@ -295,7 +302,7 @@ export default function ExecutionDetail() {
             {aiOriginalResponse && (
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                 <h2 className="text-xl font-bold text-slate-900 mb-6">AI Answer</h2>
-                <div className="prose prose-slate prose-lg max-w-none prose-headings:mt-8 prose-headings:mb-4 prose-p:my-4 prose-p:leading-relaxed prose-li:my-2 prose-ul:my-4 prose-ol:my-4">
+                <div className="prose prose-slate prose-lg max-w-none prose-headings:mt-8 prose-headings:mb-4 prose-p:my-4 prose-p:leading-relaxed prose-li:my-2 prose-ul:my-4 prose-ol:my-4 max-h-96 overflow-y-auto border border-slate-200 rounded-lg p-4 bg-slate-50">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiOriginalResponse}</ReactMarkdown>
                 </div>
               </div>
