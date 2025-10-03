@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test n8n Webhook</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        button:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+        }
+        .log {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 6px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .log pre {
+            margin: 0;
+            white-space: pre-wrap;
+        }
+        .success {
+            color: #10b981;
+        }
+        .error {
+            color: #ef4444;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin: 10px 0;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+        }
+        label {
+            font-weight: 500;
+            display: block;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test n8n Webhook Callback</h1>
+        <p>This tool tests if the n8n-callback edge function is working correctly with the new data parsing fixes.</p>
+
+        <label>Execution ID (from prompt_executions table):</label>
+        <input type="text" id="executionId" placeholder="e.g., 00b5370f-d5c3-4125-9135-1c84bac-463b2" />
+
+        <label>Supabase URL:</label>
+        <input type="text" id="supabaseUrl" placeholder="https://your-project.supabase.co" />
+
+        <button onclick="testWebhook()">Test Webhook</button>
+
+        <div class="log" id="log">
+            <pre>Logs will appear here...</pre>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : '';
+            logDiv.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        async function testWebhook() {
+            const executionId = document.getElementById('executionId').value;
+            const supabaseUrl = document.getElementById('supabaseUrl').value;
+
+            if (!executionId) {
+                log('Error: Please enter an execution ID', 'error');
+                return;
+            }
+
+            if (!supabaseUrl) {
+                log('Error: Please enter your Supabase URL', 'error');
+                return;
+            }
+
+            const logDiv = document.getElementById('log');
+            logDiv.innerHTML = '<pre>Starting test...</pre>';
+
+            log('Testing n8n callback with execution ID: ' + executionId);
+
+            const payload = {
+                "executionId": executionId,
+                "brandAndCompetitorMentions": {
+                    "Taxbuddy": "0",
+                    "ClearTax": "7",
+                    "Tax2Win": "7",
+                    "Income Tax Department E-filing Portal": "10"
+                },
+                "overallSentiment": {
+                    "Positive": "0%",
+                    "Neutral": "100%",
+                    "Negative": "0%"
+                },
+                "recommendations": [
+                    {
+                        "id": "Recommendation 1",
+                        "text": "Create comprehensive comparison pages on Taxbuddy's website."
+                    },
+                    {
+                        "id": "Recommendation 2",
+                        "text": "Develop in-depth, user-centric content around common tax scenarios."
+                    },
+                    {
+                        "id": "Recommendation 3",
+                        "text": "Actively pursue mentions from authoritative financial sites."
+                    }
+                ]
+            };
+
+            log('Payload prepared with test data');
+            log('Sending to: ' + supabaseUrl + '/functions/v1/n8n-callback');
+
+            try {
+                const response = await fetch(supabaseUrl + '/functions/v1/n8n-callback', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                log('Response status: ' + response.status);
+
+                const data = await response.json();
+                log('Response data: ' + JSON.stringify(data, null, 2), response.ok ? 'success' : 'error');
+
+                if (response.ok) {
+                    log('✓ Webhook test successful!', 'success');
+                    log('Now check your database tables:', 'success');
+                    log('  - sentiment_analysis should have new row', 'success');
+                    log('  - brand_mentions should have 4 new rows', 'success');
+                    log('  - recommendations should have 3 new rows', 'success');
+                    log('  - aggregated_metrics should be updated', 'success');
+                } else {
+                    log('✗ Webhook test failed!', 'error');
+                }
+            } catch (error) {
+                log('✗ Error: ' + error.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

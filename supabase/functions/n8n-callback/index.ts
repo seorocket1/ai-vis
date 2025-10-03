@@ -1,0 +1,340 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+};
+
+async function calculateAndStoreMetrics(supabase: any, userId: string) {
+  try {
+    console.log('[calculateAndStoreMetrics] Starting for user:', userId);
+
+    const { data: executions } = await supabase
+      .from('prompt_executions')
+      .select('id, platform, prompt_id')
+      .eq('user_id', userId)
+      .eq('status', 'completed');
+
+    console.log('[calculateAndStoreMetrics] Found executions:', executions?.length || 0);
+
+    if (!executions || executions.length === 0) {
+      console.log('[calculateAndStoreMetrics] No completed executions found');
+      return;
+    }
+
+    const executionIds = executions.map((e: any) => e.id);
+    const uniquePromptIds = [...new Set(executions.map((e: any) => e.prompt_id))];
+
+    const [mentionsResult, sentimentResult, profileResult] = await Promise.all([
+      supabase.from('brand_mentions').select('*').in('execution_id', executionIds),
+      supabase.from('sentiment_analysis').select('*').in('execution_id', executionIds),
+      supabase.from('profiles').select('brand_name').eq('id', userId).maybeSingle(),
+    ]);
+
+    console.log('[calculateAndStoreMetrics] Mentions:', mentionsResult.data?.length || 0);
+    console.log('[calculateAndStoreMetrics] Sentiments:', sentimentResult.data?.length || 0);
+
+    const mentions = mentionsResult.data || [];
+    const sentiments = sentimentResult.data || [];
+    const userBrand = profileResult.data?.brand_name || '';
+
+    const totalBrandMentions = mentions
+      .filter((m: any) => m.is_user_brand)
+      .reduce((sum: number, m: any) => sum + m.mention_count, 0);
+
+    const totalCompetitorMentions = mentions
+      .filter((m: any) => !m.is_user_brand)
+      .reduce((sum: number, m: any) => sum + m.mention_count, 0);
+
+    const totalMentions = totalBrandMentions + totalCompetitorMentions;
+    const shareOfVoice = totalMentions > 0 ? (totalBrandMentions / totalMentions) * 100 : 0;
+
+    const competitorCounts: Record<string, number> = {};
+    mentions.filter((m: any) => !m.is_user_brand).forEach((m: any) => {
+      competitorCounts[m.brand_name] = (competitorCounts[m.brand_name] || 0) + m.mention_count;
+    });
+
+    const topCompetitor = Object.entries(competitorCounts)
+      .sort(([, a], [, b]) => (b as number) - (a as number))[0]?.[0] || '';
+
+    const avgPositive = sentiments.length > 0
+      ? sentiments.reduce((sum: number, s: any) => sum + (parseFloat(s.positive_percentage) || 0), 0) / sentiments.length
+      : 0;
+
+    const avgNeutral = sentiments.length > 0
+      ? sentiments.reduce((sum: number, s: any) => sum + (parseFloat(s.neutral_percentage) || 0), 0) / sentiments.length
+      : 0;
+
+    const avgNegative = sentiments.length > 0
+      ? sentiments.reduce((sum: number, s: any) => sum + (parseFloat(s.negative_percentage) || 0), 0) / sentiments.length
+      : 0;
+
+    const avgSentimentScore = avgPositive - avgNegative;
+
+    const promptsWithBrandMentions = new Set(
+      mentions
+        .filter((m: any) => m.is_user_brand && m.mention_count > 0)
+        .map((m: any) => {
+          const exec = executions.find((e: any) => e.id === m.execution_id);
+          return exec?.prompt_id;
+        })
+        .filter(Boolean)
+    ).size;
+
+    const brandCoverageAcrossPrompts = uniquePromptIds.length > 0
+      ? (promptsWithBrandMentions / uniquePromptIds.length) * 100
+      : 0;
+
+    const avgBrandVisibility = executions.length > 0
+      ? totalBrandMentions / executions.length
+      : 0;
+
+    const uniquePlatforms = new Set(executions.map((e: any) => e.platform)).size;
+
+    const allBrands = [...new Set(mentions.map((m: any) => m.brand_name))];
+    const brandScores = allBrands.map(brand => {
+      const brandMentionCount = mentions
+        .filter((m: any) => m.brand_name === brand)
+        .reduce((sum: number, m: any) => sum + m.mention_count, 0);
+      return { brand, count: brandMentionCount };
+    }).sort((a, b) => b.count - a.count);
+
+    const competitiveRank = brandScores.findIndex(b =>
+      b.brand.toLowerCase().includes(userBrand.toLowerCase()) ||
+      userBrand.toLowerCase().includes(b.brand.toLowerCase())
+    ) + 1;
+
+    const responseQuality = (shareOfVoice * 0.4) + (avgPositive * 0.6);
+
+    const metrics = {
+      user_id: userId,
+      time_period: 'all',
+      avg_sentiment_score: avgSentimentScore,
+      avg_brand_visibility: brandCoverageAcrossPrompts,
+      share_of_voice: shareOfVoice,
+      competitive_rank: competitiveRank || 0,
+      response_quality: responseQuality,
+      platform_coverage: uniquePlatforms,
+      total_executions: executions.length,
+      total_brand_mentions: totalBrandMentions,
+      total_competitor_mentions: totalCompetitorMentions,
+      top_competitor: topCompetitor,
+      avg_positive_sentiment: avgPositive,
+      avg_neutral_sentiment: avgNeutral,
+      avg_negative_sentiment: avgNegative,
+      updated_at: new Date().toISOString(),
+    };
+
+    console.log('[calculateAndStoreMetrics] Metrics to save:', JSON.stringify(metrics));
+
+    const { error: metricsError } = await supabase
+      .from('aggregated_metrics')
+      .upsert(metrics, { onConflict: 'user_id,time_period' });
+
+    if (metricsError) {
+      console.error('[calculateAndStoreMetrics] Error saving metrics:', metricsError);
+    } else {
+      console.log('[calculateAndStoreMetrics] Metrics saved successfully');
+    }
+  } catch (error) {
+    console.error('[calculateAndStoreMetrics] Error:', error);
+  }
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 200,
+      headers: corsHeaders,
+    });
+  }
+
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const payload = await req.json();
+    console.log('[n8n-callback] ========== NEW REQUEST ==========');
+    console.log('[n8n-callback] Full payload received:', JSON.stringify(payload, null, 2));
+
+    const { executionId, brandAndCompetitorMentions, sentiment, recommendations, AI_original_response, overallSentiment } = payload;
+
+    if (!executionId) {
+      console.error('[n8n-callback] ERROR: Missing executionId in payload');
+      return new Response(
+        JSON.stringify({ success: false, error: 'executionId is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('[n8n-callback] Looking up execution:', executionId);
+
+    const { data: execution, error: execLookupError } = await supabase
+      .from('prompt_executions')
+      .select('user_id, status')
+      .eq('id', executionId)
+      .maybeSingle();
+
+    if (execLookupError) {
+      console.error('[n8n-callback] Error looking up execution:', execLookupError);
+    }
+
+    if (!execution) {
+      console.error('[n8n-callback] ERROR: Execution not found:', executionId);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Execution not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('[n8n-callback] Found execution, user_id:', execution.user_id, 'status:', execution.status);
+
+    const userId = execution.user_id;
+
+    console.log('[n8n-callback] Updating execution status to completed');
+    const { error: execError } = await supabase
+      .from('prompt_executions')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        ai_response: JSON.stringify(payload),
+      })
+      .eq('id', executionId);
+
+    if (execError) {
+      console.error('[n8n-callback] Error updating execution:', execError);
+      throw execError;
+    }
+    console.log('[n8n-callback] Execution status updated successfully');
+
+    if (brandAndCompetitorMentions) {
+      console.log('[n8n-callback] Processing brand mentions...');
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('brand_name')
+        .eq('id', userId)
+        .maybeSingle();
+
+      const userBrand = profileData?.brand_name || '';
+      console.log('[n8n-callback] User brand:', userBrand);
+
+      const mentions = Object.entries(brandAndCompetitorMentions).map(([brand, count]) => {
+        const isUserBrand =
+          brand.toLowerCase().includes(userBrand.toLowerCase()) ||
+          userBrand.toLowerCase().includes(brand.toLowerCase());
+
+        const mentionCount = typeof count === 'string' ? parseInt(count, 10) : (count as number);
+
+        return {
+          execution_id: executionId,
+          brand_name: brand,
+          mention_count: mentionCount || 0,
+          is_user_brand: isUserBrand,
+        };
+      });
+
+      console.log('[n8n-callback] Inserting', mentions.length, 'brand mentions');
+      const { error: mentionsError } = await supabase
+        .from('brand_mentions')
+        .insert(mentions);
+
+      if (mentionsError) {
+        console.error('[n8n-callback] Error inserting brand mentions:', mentionsError);
+      } else {
+        console.log('[n8n-callback] Brand mentions inserted successfully');
+      }
+    } else {
+      console.log('[n8n-callback] WARNING: No brandAndCompetitorMentions in payload');
+    }
+
+    const sentimentToUse = sentiment || overallSentiment;
+    if (sentimentToUse) {
+      console.log('[n8n-callback] Processing sentiment analysis...');
+      console.log('[n8n-callback] Sentiment data:', JSON.stringify(sentimentToUse));
+
+      const parsePercentage = (value: any): number => {
+        if (typeof value === 'number') return value;
+        if (typeof value === 'string') {
+          const cleaned = value.replace('%', '').trim();
+          return parseFloat(cleaned) || 0;
+        }
+        return 0;
+      };
+
+      const { error: sentimentError } = await supabase
+        .from('sentiment_analysis')
+        .insert({
+          execution_id: executionId,
+          positive_percentage: parsePercentage(sentimentToUse.Positive || sentimentToUse.positive),
+          neutral_percentage: parsePercentage(sentimentToUse.Neutral || sentimentToUse.neutral),
+          negative_percentage: parsePercentage(sentimentToUse.Negative || sentimentToUse.negative),
+        });
+
+      if (sentimentError) {
+        console.error('[n8n-callback] Error inserting sentiment:', sentimentError);
+      } else {
+        console.log('[n8n-callback] Sentiment analysis inserted successfully');
+      }
+    } else {
+      console.log('[n8n-callback] WARNING: No sentiment data in payload');
+    }
+
+    if (recommendations && Array.isArray(recommendations)) {
+      console.log('[n8n-callback] Processing', recommendations.length, 'recommendations');
+      const recs = recommendations.map((rec: any, index: number) => ({
+        execution_id: executionId,
+        recommendation_id: `rec_${index + 1}`,
+        text: typeof rec === 'string' ? rec : rec.text,
+      }));
+
+      const { error: recsError } = await supabase
+        .from('recommendations')
+        .insert(recs);
+
+      if (recsError) {
+        console.error('[n8n-callback] Error inserting recommendations:', recsError);
+      } else {
+        console.log('[n8n-callback] Recommendations inserted successfully');
+      }
+    } else {
+      console.log('[n8n-callback] WARNING: No recommendations in payload');
+    }
+
+    console.log('[n8n-callback] Calculating and storing metrics...');
+    await calculateAndStoreMetrics(supabase, userId);
+
+    console.log('[n8n-callback] ========== REQUEST COMPLETED SUCCESSFULLY ==========');
+
+    return new Response(
+      JSON.stringify({ success: true, message: 'Data saved successfully' }),
+      {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+  } catch (error: any) {
+    console.error('[n8n-callback] ========== ERROR ==========');
+    console.error('[n8n-callback] Error:', error);
+    console.error('[n8n-callback] Stack:', error.stack);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error.message || 'Unknown error occurred',
+      }),
+      {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+  }
+});
