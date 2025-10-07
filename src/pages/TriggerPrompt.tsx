@@ -102,52 +102,51 @@ export default function TriggerPrompt() {
         .update({ last_triggered_at: new Date().toISOString() })
         .eq('id', prompt.id);
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      // Call n8n webhook directly for each platform
+      const n8nWebhookUrl = 'https://n8n.seoengine.agency/webhook/84366642-2502-4684-baac-18e950410124';
 
-      if (supabaseUrl && supabaseKey) {
-        const edgeFunctionUrl = `${supabaseUrl}/functions/v1/trigger-analysis`;
+      for (let i = 0; i < selectedPlatforms.length; i++) {
+        const platformId = selectedPlatforms[i];
+        const platform = platforms.find((p) => p.id === platformId);
+        const executionId = executionIds[i];
 
-        for (let i = 0; i < selectedPlatforms.length; i++) {
-          const platformId = selectedPlatforms[i];
-          const platform = platforms.find((p) => p.id === platformId);
-          const executionId = executionIds[i];
-
-          if (!platform || !executionId) {
-            console.error('Missing platform or executionId', { platform, executionId });
-            continue;
-          }
-
-          try {
-            console.log(`Triggering ${platform.displayName} analysis with executionId: ${executionId}`);
-
-            const response = await fetch(edgeFunctionUrl, {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${supabaseKey}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                Model: platform.name,
-                Prompt: prompt.text,
-                Brand: profile.brand_name,
-                executionId: executionId,
-              }),
-            });
-
-            console.log(`${platform.displayName} response status:`, response.status);
-            const responseData = await response.json();
-            console.log(`${platform.displayName} response:`, responseData);
-
-            if (!response.ok) {
-              console.error(`${platform.displayName} analysis failed:`, responseData);
-            }
-          } catch (webhookError) {
-            console.error(`Error triggering ${platform.displayName} analysis:`, webhookError);
-          }
+        if (!platform || !executionId) {
+          console.error('Missing platform or executionId', { platform, executionId });
+          continue;
         }
-      } else {
-        console.log('Running in local mode - edge functions disabled. Executions created but analysis will need to be triggered manually.');
+
+        try {
+          console.log(`Triggering ${platform.displayName} analysis with executionId: ${executionId}`);
+
+          const response = await fetch(n8nWebhookUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              Model: platform.name,
+              Prompt: prompt.text,
+              Brand: profile.brand_name,
+              executionId: executionId,
+            }),
+          });
+
+          console.log(`${platform.displayName} n8n response status:`, response.status);
+
+          if (response.ok) {
+            const responseData = await response.json();
+            console.log(`${platform.displayName} n8n response:`, responseData);
+          } else {
+            console.error(`${platform.displayName} n8n webhook failed with status:`, response.status);
+          }
+        } catch (webhookError) {
+          console.error(`Error triggering ${platform.displayName} analysis:`, webhookError);
+          // Mark execution as failed if webhook call fails
+          await supabase
+            .from('prompt_executions')
+            .update({ status: 'failed' })
+            .eq('id', executionId);
+        }
       }
 
       if (executionIds.length > 0) {
