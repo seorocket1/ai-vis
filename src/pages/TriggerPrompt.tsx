@@ -75,22 +75,17 @@ export default function TriggerPrompt() {
         const platform = platforms.find((p) => p.id === platformId);
         if (!platform) continue;
 
-        const { data: execution, error: insertError } = await supabase
+        const { data: execution } = await supabase
           .from('prompt_executions')
           .insert({
             prompt_id: prompt.id,
             user_id: user.id,
             model: platform.name,
-            platform: platform.id,
-            status: 'pending',
+            platform: platformId,
+            status: 'processing',
           })
           .select()
           .single();
-
-        if (insertError) {
-          console.error('Error creating execution:', insertError);
-          throw new Error(`Failed to create execution: ${insertError.message}`);
-        }
 
         if (execution) {
           executionIds.push(execution.id);
@@ -102,58 +97,36 @@ export default function TriggerPrompt() {
         .update({ last_triggered_at: new Date().toISOString() })
         .eq('id', prompt.id);
 
-      // Use edge function as proxy to avoid CORS/ad-blocker issues
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const edgeFunctionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/trigger-analysis`;
 
       for (let i = 0; i < selectedPlatforms.length; i++) {
         const platformId = selectedPlatforms[i];
         const platform = platforms.find((p) => p.id === platformId);
-        const executionId = executionIds[i];
-
-        if (!platform || !executionId) {
-          console.error('Missing platform or executionId', { platform, executionId });
-          continue;
-        }
+        if (!platform) continue;
 
         try {
-          console.log(`Triggering ${platform.displayName} analysis with executionId: ${executionId}`);
+          console.log(`Triggering ${platform.displayName} analysis`);
 
-          if (supabaseUrl && supabaseKey) {
-            // Try using edge function as proxy
-            const edgeFunctionUrl = `${supabaseUrl}/functions/v1/trigger-analysis`;
+          const response = await fetch(edgeFunctionUrl, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              Model: platform.name,
+              Platform: platformId,
+              Prompt: prompt.text,
+              Brand: profile.brand_name,
+              executionId: executionIds[i],
+            }),
+          });
 
-            const response = await fetch(edgeFunctionUrl, {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${supabaseKey}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                Model: platform.name,
-                Prompt: prompt.text,
-                Brand: profile.brand_name,
-                executionId: executionId,
-              }),
-            });
-
-            console.log(`${platform.displayName} response status:`, response.status);
-            const responseData = await response.json();
-            console.log(`${platform.displayName} response:`, responseData);
-
-            if (!response.ok) {
-              console.error(`${platform.displayName} analysis failed:`, responseData);
-            }
-          } else {
-            console.error('Supabase environment variables not configured');
-          }
+          console.log(`${platform.displayName} response status:`, response.status);
+          const responseData = await response.json();
+          console.log(`${platform.displayName} response:`, responseData);
         } catch (webhookError) {
           console.error(`Error triggering ${platform.displayName} analysis:`, webhookError);
-          // Mark execution as failed if webhook call fails
-          await supabase
-            .from('prompt_executions')
-            .update({ status: 'failed' })
-            .eq('id', executionId);
         }
       }
 
