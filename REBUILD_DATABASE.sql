@@ -105,6 +105,7 @@ CREATE TABLE prompt_executions (
   prompt_id uuid NOT NULL REFERENCES prompts(id) ON DELETE CASCADE,
   user_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   model text NOT NULL,
+  platform text NOT NULL DEFAULT 'gemini',
   status text DEFAULT 'pending' NOT NULL,
   ai_response text,
   executed_at timestamptz DEFAULT now() NOT NULL,
@@ -114,6 +115,7 @@ CREATE TABLE prompt_executions (
 CREATE INDEX idx_prompt_executions_prompt_id ON prompt_executions(prompt_id);
 CREATE INDEX idx_prompt_executions_user_id ON prompt_executions(user_id);
 CREATE INDEX idx_prompt_executions_status ON prompt_executions(status);
+CREATE INDEX idx_prompt_executions_platform ON prompt_executions(platform);
 CREATE INDEX idx_prompt_executions_executed_at ON prompt_executions(executed_at DESC);
 
 ALTER TABLE prompt_executions ENABLE ROW LEVEL SECURITY;
