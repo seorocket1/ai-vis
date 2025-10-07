@@ -1,4 +1,3 @@
-import initSqlJs from 'sql.js';
 import type { Database } from 'sql.js';
 import localforage from 'localforage';
 
@@ -10,6 +9,7 @@ class LocalDatabase {
   async initialize() {
     if (this.initialized) return;
 
+    const initSqlJs = (await import('sql.js')).default;
     this.SQL = await initSqlJs({
       locateFile: (file) => `https://sql.js.org/dist/${file}`
     });
