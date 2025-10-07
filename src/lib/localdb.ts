@@ -11,7 +11,7 @@ class LocalDatabase {
     if (this.initialized) return;
 
     this.SQL = await initSqlJs({
-      locateFile: (file) => `/${file}`
+      locateFile: (file) => `https://sql.js.org/dist/${file}`
     });
 
     const savedDb = await localforage.getItem<Uint8Array>('brandtracker-db');

@@ -8,12 +8,14 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     optimizeDeps: {
-      exclude: ['lucide-react'],
-      include: ['sql.js', 'localforage']
+      exclude: ['lucide-react', 'sql.js']
     },
     define: {
       'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
       'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
+    },
+    build: {
+      target: 'esnext'
     }
   };
 });
