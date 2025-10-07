@@ -19,6 +19,7 @@ export interface Database {
           subscription_status: string
           subscription_end_date: string | null
           onboarding_completed: boolean
+          is_admin: boolean
           created_at: string
           updated_at: string
         }
@@ -31,6 +32,7 @@ export interface Database {
           subscription_status?: string
           subscription_end_date?: string | null
           onboarding_completed?: boolean
+          is_admin?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -43,6 +45,7 @@ export interface Database {
           subscription_status?: string
           subscription_end_date?: string | null
           onboarding_completed?: boolean
+          is_admin?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -108,6 +111,7 @@ export interface Database {
           prompt_id: string
           user_id: string
           model: string
+          platform: string
           status: string
           ai_response: string | null
           executed_at: string
@@ -118,6 +122,7 @@ export interface Database {
           prompt_id: string
           user_id: string
           model: string
+          platform: string
           status?: string
           ai_response?: string | null
           executed_at?: string
@@ -128,6 +133,7 @@ export interface Database {
           prompt_id?: string
           user_id?: string
           model?: string
+          platform?: string
           status?: string
           ai_response?: string | null
           executed_at?: string
@@ -206,6 +212,68 @@ export interface Database {
           execution_id?: string
           recommendation_id?: string
           text?: string
+          created_at?: string
+        }
+      }
+      aggregated_metrics: {
+        Row: {
+          id: string
+          user_id: string
+          time_period: string
+          avg_sentiment_score: number
+          avg_brand_visibility: number
+          share_of_voice: number
+          competitive_rank: number
+          response_quality: number
+          platform_coverage: number
+          total_executions: number
+          total_brand_mentions: number
+          total_competitor_mentions: number
+          top_competitor: string | null
+          avg_positive_sentiment: number
+          avg_neutral_sentiment: number
+          avg_negative_sentiment: number
+          updated_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          time_period?: string
+          avg_sentiment_score?: number
+          avg_brand_visibility?: number
+          share_of_voice?: number
+          competitive_rank?: number
+          response_quality?: number
+          platform_coverage?: number
+          total_executions?: number
+          total_brand_mentions?: number
+          total_competitor_mentions?: number
+          top_competitor?: string | null
+          avg_positive_sentiment?: number
+          avg_neutral_sentiment?: number
+          avg_negative_sentiment?: number
+          updated_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          time_period?: string
+          avg_sentiment_score?: number
+          avg_brand_visibility?: number
+          share_of_voice?: number
+          competitive_rank?: number
+          response_quality?: number
+          platform_coverage?: number
+          total_executions?: number
+          total_brand_mentions?: number
+          total_competitor_mentions?: number
+          top_competitor?: string | null
+          avg_positive_sentiment?: number
+          avg_neutral_sentiment?: number
+          avg_negative_sentiment?: number
+          updated_at?: string
           created_at?: string
         }
       }
