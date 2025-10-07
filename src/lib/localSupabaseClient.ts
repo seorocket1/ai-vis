@@ -266,6 +266,13 @@ class QueryBuilder {
         await localdb.run(sql, values);
       }
 
+      if (this.singleMode || this.maybeSingleMode) {
+        if (data.length === 0) {
+          return { data: null, error: this.singleMode ? { message: 'No rows inserted' } : null };
+        }
+        return { data: data[0], error: null };
+      }
+
       return { data: data, error: null };
     } catch (error: any) {
       return { data: null, error: { message: error.message } };

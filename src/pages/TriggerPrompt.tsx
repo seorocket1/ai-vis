@@ -81,6 +81,7 @@ export default function TriggerPrompt() {
             prompt_id: prompt.id,
             user_id: user.id,
             model: platform.name,
+            platform: platform.id,
             status: 'pending',
           })
           .select()
@@ -101,45 +102,52 @@ export default function TriggerPrompt() {
         .update({ last_triggered_at: new Date().toISOString() })
         .eq('id', prompt.id);
 
-      const edgeFunctionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/trigger-analysis`;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-      for (let i = 0; i < selectedPlatforms.length; i++) {
-        const platformId = selectedPlatforms[i];
-        const platform = platforms.find((p) => p.id === platformId);
-        const executionId = executionIds[i];
+      if (supabaseUrl && supabaseKey) {
+        const edgeFunctionUrl = `${supabaseUrl}/functions/v1/trigger-analysis`;
 
-        if (!platform || !executionId) {
-          console.error('Missing platform or executionId', { platform, executionId });
-          continue;
-        }
+        for (let i = 0; i < selectedPlatforms.length; i++) {
+          const platformId = selectedPlatforms[i];
+          const platform = platforms.find((p) => p.id === platformId);
+          const executionId = executionIds[i];
 
-        try {
-          console.log(`Triggering ${platform.displayName} analysis with executionId: ${executionId}`);
-
-          const response = await fetch(edgeFunctionUrl, {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              Model: platform.name,
-              Prompt: prompt.text,
-              Brand: profile.brand_name,
-              executionId: executionId,
-            }),
-          });
-
-          console.log(`${platform.displayName} response status:`, response.status);
-          const responseData = await response.json();
-          console.log(`${platform.displayName} response:`, responseData);
-
-          if (!response.ok) {
-            console.error(`${platform.displayName} analysis failed:`, responseData);
+          if (!platform || !executionId) {
+            console.error('Missing platform or executionId', { platform, executionId });
+            continue;
           }
-        } catch (webhookError) {
-          console.error(`Error triggering ${platform.displayName} analysis:`, webhookError);
+
+          try {
+            console.log(`Triggering ${platform.displayName} analysis with executionId: ${executionId}`);
+
+            const response = await fetch(edgeFunctionUrl, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${supabaseKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                Model: platform.name,
+                Prompt: prompt.text,
+                Brand: profile.brand_name,
+                executionId: executionId,
+              }),
+            });
+
+            console.log(`${platform.displayName} response status:`, response.status);
+            const responseData = await response.json();
+            console.log(`${platform.displayName} response:`, responseData);
+
+            if (!response.ok) {
+              console.error(`${platform.displayName} analysis failed:`, responseData);
+            }
+          } catch (webhookError) {
+            console.error(`Error triggering ${platform.displayName} analysis:`, webhookError);
+          }
         }
+      } else {
+        console.log('Running in local mode - edge functions disabled. Executions created but analysis will need to be triggered manually.');
       }
 
       if (executionIds.length > 0) {
