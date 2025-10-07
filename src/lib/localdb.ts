@@ -1,4 +1,5 @@
-import initSqlJs, { Database } from 'sql.js';
+import initSqlJs from 'sql.js';
+import type { Database } from 'sql.js';
 import localforage from 'localforage';
 
 class LocalDatabase {
