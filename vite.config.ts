@@ -8,11 +8,19 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     optimizeDeps: {
-      exclude: ['lucide-react'],
+      exclude: ['lucide-react', 'sql.js'],
     },
     define: {
       'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
       'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
     },
+    resolve: {
+      alias: {
+        'sql.js': 'sql.js/dist/sql-wasm.js'
+      }
+    },
+    worker: {
+      format: 'es'
+    }
   };
 });
