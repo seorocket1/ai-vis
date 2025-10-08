@@ -129,11 +129,35 @@ CREATE POLICY "Users can update own profile"
   ON profiles FOR UPDATE
   TO authenticated
   USING (auth.uid() = id)
-  WITH CHECK (
-    auth.uid() = id
-    AND (
-      (NEW.is_admin IS NOT DISTINCT FROM OLD.is_admin)
-      AND (NEW.subscription_plan IS NOT DISTINCT FROM OLD.subscription_plan)
-      AND (NEW.monthly_query_limit IS NOT DISTINCT FROM OLD.monthly_query_limit)
-    )
-  );
+  WITH CHECK (auth.uid() = id);
+
+-- Trigger to prevent users from changing protected fields
+CREATE OR REPLACE FUNCTION prevent_protected_field_changes()
+RETURNS TRIGGER AS $$
+DECLARE
+  is_admin_user BOOLEAN;
+BEGIN
+  -- Check if the user is an admin
+  SELECT is_admin INTO is_admin_user
+  FROM profiles
+  WHERE id = auth.uid();
+
+  -- If not admin, prevent changes to protected fields
+  IF NOT COALESCE(is_admin_user, false) THEN
+    NEW.is_admin := OLD.is_admin;
+    NEW.subscription_plan := OLD.subscription_plan;
+    NEW.monthly_query_limit := OLD.monthly_query_limit;
+    NEW.queries_used_this_month := OLD.queries_used_this_month;
+    NEW.plan_started_at := OLD.plan_started_at;
+    NEW.last_query_reset_at := OLD.last_query_reset_at;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS protect_subscription_fields ON profiles;
+CREATE TRIGGER protect_subscription_fields
+  BEFORE UPDATE ON profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION prevent_protected_field_changes();
