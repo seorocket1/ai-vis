@@ -35,16 +35,31 @@ export default function DashboardLayout({ children, currentPage }: DashboardLayo
   const loadUserPlan = async () => {
     if (!user) return;
 
-    const { data } = await supabase
-      .from('profiles')
-      .select('subscription_plan, queries_used_this_month, monthly_query_limit')
-      .eq('id', user.id)
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('subscription_plan, queries_used_this_month, monthly_query_limit')
+        .eq('id', user.id)
+        .maybeSingle();
 
-    if (data) {
-      setUserPlan(data.subscription_plan || 'free');
-      setQueriesUsed(data.queries_used_this_month || 0);
-      setQueryLimit(data.monthly_query_limit || 5);
+      if (error) {
+        console.warn('Could not load subscription info:', error);
+        setUserPlan('free');
+        setQueriesUsed(0);
+        setQueryLimit(5);
+        return;
+      }
+
+      if (data) {
+        setUserPlan(data.subscription_plan || 'free');
+        setQueriesUsed(data.queries_used_this_month || 0);
+        setQueryLimit(data.monthly_query_limit || 5);
+      }
+    } catch (error) {
+      console.error('Error loading user plan:', error);
+      setUserPlan('free');
+      setQueriesUsed(0);
+      setQueryLimit(5);
     }
   };
 
