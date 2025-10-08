@@ -24,7 +24,7 @@ export default function Prompts() {
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
   const [newPromptText, setNewPromptText] = useState('');
   const [newPromptFrequency, setNewPromptFrequency] = useState('weekly');
-  const [newPromptPlatform, setNewPromptPlatform] = useState('all');
+  const [newPromptPlatform, setNewPromptPlatform] = useState('gemini');
   const [isBulkMode, setIsBulkMode] = useState(false);
   const [bulkPromptText, setBulkPromptText] = useState('');
   const [selectedPrompts, setSelectedPrompts] = useState<string[]>([]);
@@ -52,10 +52,13 @@ export default function Prompts() {
     ]);
 
     const promptsWithExecution = (promptsResult.data || []).map(prompt => {
-      const completedExec = (prompt.prompt_executions || []).find((e: any) => e.status === 'completed');
+      const executions = prompt.prompt_executions || [];
+      const completedExecs = executions.filter((e: any) => e.status === 'completed');
+      const latestExecution = completedExecs.length > 0 ? completedExecs[completedExecs.length - 1] : null;
       return {
         ...prompt,
-        latestExecution: completedExec
+        latestExecution,
+        allExecutions: executions
       };
     });
 
@@ -160,19 +163,75 @@ export default function Prompts() {
   };
 
   const triggerSinglePrompt = async (promptId: string) => {
+    if (!user || !profile) return;
+
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/trigger-analysis`, {
+      // Get the prompt details
+      const { data: promptData } = await supabase
+        .from('prompts')
+        .select('*')
+        .eq('id', promptId)
+        .maybeSingle();
+
+      if (!promptData || !profile.brand_name) {
+        console.error('Prompt or brand name not found');
+        return;
+      }
+
+      const promptPlatform = promptData.platform || 'gemini';
+      const platformMap: Record<string, string> = {
+        'gemini': 'Gemini',
+        'chatgpt': 'ChatGPT',
+        'perplexity': 'Perplexity',
+        'ai-overview': 'AI Overview'
+      };
+      const modelName = platformMap[promptPlatform] || 'Gemini';
+
+      // Create execution record
+      const { data: execution } = await supabase
+        .from('prompt_executions')
+        .insert({
+          prompt_id: promptId,
+          user_id: user.id,
+          model: modelName,
+          platform: promptPlatform,
+          status: 'processing',
+        })
+        .select()
+        .single();
+
+      if (!execution) {
+        console.error('Failed to create execution');
+        return;
+      }
+
+      // Update last triggered
+      await supabase
+        .from('prompts')
+        .update({ last_triggered_at: new Date().toISOString() })
+        .eq('id', promptId);
+
+      // Refresh the UI to show processing state
+      loadData();
+
+      // Call n8n webhook
+      const n8nWebhookUrl = 'https://n8n.seoengine.agency/webhook/84366642-2502-4684-baac-18e950410124';
+
+      await fetch(n8nWebhookUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ promptId }),
+        body: JSON.stringify({
+          Model: modelName,
+          Platform: promptPlatform,
+          Prompt: promptData.text,
+          Brand: profile.brand_name,
+          executionId: execution.id,
+        }),
       });
 
-      if (!response.ok) {
-        console.error('Failed to trigger analysis');
-      }
+      console.log('Analysis triggered for prompt:', promptId, 'on platform:', promptPlatform);
     } catch (error) {
       console.error('Error triggering analysis:', error);
     }
@@ -479,8 +538,13 @@ export default function Prompts() {
                       }
                     }
 
+                    const hasProcessing = (prompt.allExecutions || []).some((e: any) => e.status === 'processing');
+                    const rowClass = hasProcessing
+                      ? "border-b border-slate-100 bg-blue-50 hover:bg-blue-100 transition-colors group animate-pulse"
+                      : "border-b border-slate-100 hover:bg-slate-50 transition-colors group";
+
                     return (
-                      <tr key={prompt.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors group">
+                      <tr key={prompt.id} className={rowClass}>
                         <td className="py-4 px-2">
                           <input
                             type="checkbox"
@@ -527,23 +591,85 @@ export default function Prompts() {
                           </div>
                         </td>
                         <td className="py-4 px-4 text-center">
-                          {latestExecution ? (
-                            brandMentioned ? (
-                              <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                </svg>
-                                Yes
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">
-                                <X className="w-4 h-4" />
-                                No
-                              </span>
-                            )
-                          ) : (
-                            <span className="text-sm text-slate-400">—</span>
-                          )}
+                          {(() => {
+                            const allExecs = prompt.allExecutions || [];
+                            const completedExecs = allExecs.filter((e: any) => e.status === 'completed');
+                            const processingExecs = allExecs.filter((e: any) => e.status === 'processing');
+
+                            if (processingExecs.length > 0 && completedExecs.length === 0) {
+                              return (
+                                <span className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-ping"></div>
+                                  Processing
+                                </span>
+                              );
+                            }
+
+                            if (completedExecs.length === 0) {
+                              return <span className="text-sm text-slate-400">—</span>;
+                            }
+
+                            const platformLetters: Record<string, string> = {
+                              'gemini': 'G',
+                              'chatgpt': 'C',
+                              'perplexity': 'P',
+                              'ai-overview': 'A'
+                            };
+
+                            const platformNames: Record<string, string> = {
+                              'gemini': 'Gemini',
+                              'chatgpt': 'ChatGPT',
+                              'perplexity': 'Perplexity',
+                              'ai-overview': 'AI Overview'
+                            };
+
+                            const mentionedPlatforms: string[] = [];
+
+                            completedExecs.forEach((exec: any) => {
+                              if (exec.ai_response && profile?.brand_name) {
+                                try {
+                                  const response = typeof exec.ai_response === 'string'
+                                    ? JSON.parse(exec.ai_response)
+                                    : exec.ai_response;
+
+                                  if (response?.brandAndCompetitorMentions) {
+                                    const mentions = response.brandAndCompetitorMentions;
+                                    if ((mentions[profile.brand_name] || 0) > 0) {
+                                      const platform = exec.platform || 'gemini';
+                                      if (!mentionedPlatforms.includes(platform)) {
+                                        mentionedPlatforms.push(platform);
+                                      }
+                                    }
+                                  }
+                                } catch (e) {
+                                  // Skip invalid JSON
+                                }
+                              }
+                            });
+
+                            if (mentionedPlatforms.length === 0) {
+                              return (
+                                <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">
+                                  <X className="w-4 h-4" />
+                                  No
+                                </span>
+                              );
+                            }
+
+                            return (
+                              <div className="flex items-center justify-center gap-1">
+                                {mentionedPlatforms.map((platform) => (
+                                  <span
+                                    key={platform}
+                                    title={`Brand mentioned in ${platformNames[platform]}`}
+                                    className="inline-flex items-center justify-center w-7 h-7 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold hover:bg-emerald-200 transition-colors cursor-help"
+                                  >
+                                    {platformLetters[platform]}
+                                  </span>
+                                ))}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="py-4 px-4 text-center">
                           <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm ${sentimentColor}`}>
@@ -645,11 +771,10 @@ export default function Prompts() {
                     onChange={(e) => setNewPromptPlatform(e.target.value)}
                     className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                   >
-                    <option value="all">All Platforms</option>
-                    <option value="perplexity">Perplexity</option>
-                    <option value="chatgpt">ChatGPT</option>
                     <option value="gemini">Gemini</option>
-                    <option value="claude">Claude</option>
+                    <option value="chatgpt">ChatGPT</option>
+                    <option value="perplexity">Perplexity</option>
+                    <option value="ai-overview">AI Overview</option>
                   </select>
                   <p className="text-xs text-slate-500 mt-2">
                     Select which AI platform to analyze this prompt on
@@ -682,7 +807,7 @@ export default function Prompts() {
                       setNewPromptText('');
                       setBulkPromptText('');
                       setNewPromptFrequency('weekly');
-                      setNewPromptPlatform('all');
+                      setNewPromptPlatform('gemini');
                       setIsBulkMode(false);
                     }}
                     className="flex-1 bg-slate-200 text-slate-700 py-3 rounded-lg font-medium hover:bg-slate-300 transition-colors"
