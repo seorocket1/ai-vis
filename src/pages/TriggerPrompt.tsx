@@ -123,10 +123,23 @@ export default function TriggerPrompt() {
           });
 
           console.log(`${platform.displayName} response status:`, response.status);
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+
           const responseData = await response.json();
           console.log(`${platform.displayName} response:`, responseData);
-        } catch (webhookError) {
+        } catch (webhookError: any) {
           console.error(`Error triggering ${platform.displayName} analysis:`, webhookError);
+
+          await supabase
+            .from('prompt_executions')
+            .update({
+              status: 'failed',
+              ai_response: JSON.stringify({ error: webhookError.message })
+            })
+            .eq('id', executionIds[i]);
         }
       }
 
