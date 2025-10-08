@@ -1,0 +1,574 @@
+import { useEffect, useRef } from 'react';
+import {
+  TrendingUp,
+  Eye,
+  Target,
+  BarChart3,
+  Zap,
+  Shield,
+  Users,
+  Globe,
+  CheckCircle2,
+  ArrowRight,
+  Sparkles,
+  LineChart,
+  MessageSquare,
+  Bell
+} from 'lucide-react';
+
+export default function Landing() {
+  const navigate = (path: string) => {
+    window.location.href = path;
+  };
+  const heroRef = useRef<HTMLDivElement>(null);
+  const featuresRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const loadGSAP = async () => {
+      const gsap = (await import('gsap')).default;
+      const ScrollTrigger = (await import('gsap/ScrollTrigger')).ScrollTrigger;
+      gsap.registerPlugin(ScrollTrigger);
+
+      gsap.from('.hero-title', {
+        opacity: 0,
+        y: 50,
+        duration: 1,
+        ease: 'power3.out'
+      });
+
+      gsap.from('.hero-subtitle', {
+        opacity: 0,
+        y: 30,
+        duration: 1,
+        delay: 0.3,
+        ease: 'power3.out'
+      });
+
+      gsap.from('.hero-cta', {
+        opacity: 0,
+        y: 30,
+        duration: 1,
+        delay: 0.6,
+        ease: 'power3.out'
+      });
+
+      gsap.from('.feature-card', {
+        scrollTrigger: {
+          trigger: '.features-section',
+          start: 'top 80%',
+        },
+        opacity: 0,
+        y: 50,
+        duration: 0.8,
+        stagger: 0.2,
+        ease: 'power3.out'
+      });
+
+      gsap.from('.stat-item', {
+        scrollTrigger: {
+          trigger: '.stats-section',
+          start: 'top 80%',
+        },
+        opacity: 0,
+        scale: 0.5,
+        duration: 0.6,
+        stagger: 0.15,
+        ease: 'back.out(1.7)'
+      });
+    };
+
+    loadGSAP();
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-2">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center">
+                <Eye className="w-6 h-6 text-white" />
+              </div>
+              <span className="text-xl font-bold text-slate-900">BrandTracker</span>
+            </div>
+
+            <nav className="hidden md:flex items-center space-x-8">
+              <a href="#features" className="text-slate-600 hover:text-slate-900 transition-colors">Features</a>
+              <a href="#how-it-works" className="text-slate-600 hover:text-slate-900 transition-colors">How It Works</a>
+              <a href="#pricing" className="text-slate-600 hover:text-slate-900 transition-colors">Pricing</a>
+              <button
+                onClick={() => navigate('/signin')}
+                className="px-4 py-2 text-slate-600 hover:text-slate-900 transition-colors"
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => navigate('/signup')}
+                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-lg hover:shadow-lg transition-all duration-300"
+              >
+                Get Started
+              </button>
+            </nav>
+
+            <button className="md:hidden p-2">
+              <div className="w-6 h-0.5 bg-slate-900 mb-1.5"></div>
+              <div className="w-6 h-0.5 bg-slate-900 mb-1.5"></div>
+              <div className="w-6 h-0.5 bg-slate-900"></div>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <section ref={heroRef} className="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <div className="inline-flex items-center space-x-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-full mb-6">
+                <Sparkles className="w-4 h-4" />
+                <span className="text-sm font-medium">AI-Powered Brand Intelligence</span>
+              </div>
+
+              <h1 className="hero-title text-5xl lg:text-6xl font-bold text-slate-900 mb-6 leading-tight">
+                Track Your Brand's
+                <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">
+                  AI Visibility
+                </span>
+              </h1>
+
+              <p className="hero-subtitle text-xl text-slate-600 mb-8 leading-relaxed">
+                Monitor how AI platforms like ChatGPT, Claude, and Gemini mention your brand.
+                Get actionable insights to boost your visibility in the AI era.
+              </p>
+
+              <div className="hero-cta flex flex-col sm:flex-row gap-4">
+                <button
+                  onClick={() => navigate('/signup')}
+                  className="group px-8 py-4 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-xl font-semibold hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center justify-center space-x-2"
+                >
+                  <span>Create Free Account</span>
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </button>
+                <button className="px-8 py-4 bg-white text-slate-900 rounded-xl font-semibold border-2 border-slate-200 hover:border-blue-600 hover:shadow-lg transition-all duration-300">
+                  Book Free Demo
+                </button>
+              </div>
+
+              <p className="mt-4 text-sm text-slate-500">No credit card required • Free forever plan available</p>
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-cyan-500 rounded-3xl blur-3xl opacity-20"></div>
+              <div className="relative bg-white rounded-3xl shadow-2xl p-8 border border-slate-200">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-lg flex items-center justify-center">
+                        <TrendingUp className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-600">Brand Visibility</p>
+                        <p className="text-2xl font-bold text-slate-900">+127%</p>
+                      </div>
+                    </div>
+                    <div className="text-green-500 text-2xl font-bold">↑</div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-slate-50 rounded-xl">
+                      <MessageSquare className="w-8 h-8 text-blue-600 mb-2" />
+                      <p className="text-sm text-slate-600">AI Mentions</p>
+                      <p className="text-xl font-bold text-slate-900">1,234</p>
+                    </div>
+                    <div className="p-4 bg-slate-50 rounded-xl">
+                      <Target className="w-8 h-8 text-cyan-600 mb-2" />
+                      <p className="text-sm text-slate-600">Share of Voice</p>
+                      <p className="text-xl font-bold text-slate-900">42%</p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <CheckCircle2 className="w-5 h-5 text-green-600" />
+                      <span className="font-semibold text-green-900">Sentiment Score</span>
+                    </div>
+                    <div className="w-full bg-green-200 rounded-full h-3">
+                      <div className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full" style={{ width: '85%' }}></div>
+                    </div>
+                    <p className="text-right text-sm text-green-700 mt-1">85% Positive</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="stats-section py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid md:grid-cols-4 gap-8">
+            <div className="stat-item text-center">
+              <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500 mb-2">
+                10K+
+              </div>
+              <p className="text-slate-600">Brands Tracked</p>
+            </div>
+            <div className="stat-item text-center">
+              <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500 mb-2">
+                5M+
+              </div>
+              <p className="text-slate-600">AI Queries Analyzed</p>
+            </div>
+            <div className="stat-item text-center">
+              <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500 mb-2">
+                98%
+              </div>
+              <p className="text-slate-600">Accuracy Rate</p>
+            </div>
+            <div className="stat-item text-center">
+              <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500 mb-2">
+                24/7
+              </div>
+              <p className="text-slate-600">Real-time Monitoring</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-20 bg-gradient-to-br from-slate-50 to-blue-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl lg:text-5xl font-bold text-slate-900 mb-4">
+              Why Choose BrandTracker?
+            </h2>
+            <p className="text-xl text-slate-600 max-w-3xl mx-auto">
+              The only platform built specifically for tracking brand visibility across AI platforms
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300">
+              <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center mb-6">
+                <Zap className="w-7 h-7 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-900 mb-4">Lightning Fast</h3>
+              <p className="text-slate-600 leading-relaxed">
+                Get instant insights across multiple AI platforms in seconds. No more manual checking.
+              </p>
+            </div>
+
+            <div className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300">
+              <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center mb-6">
+                <Shield className="w-7 h-7 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-900 mb-4">Enterprise Security</h3>
+              <p className="text-slate-600 leading-relaxed">
+                Bank-level encryption and security. Your data is safe and never shared with third parties.
+              </p>
+            </div>
+
+            <div className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300">
+              <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center mb-6">
+                <Globe className="w-7 h-7 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-900 mb-4">Multi-Platform</h3>
+              <p className="text-slate-600 leading-relaxed">
+                Track your brand across ChatGPT, Claude, Gemini, and more AI platforms simultaneously.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="features" className="features-section py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl lg:text-5xl font-bold text-slate-900 mb-4">
+              Powerful Features
+            </h2>
+            <p className="text-xl text-slate-600 max-w-3xl mx-auto">
+              Everything you need to dominate AI search results
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="feature-card bg-gradient-to-br from-blue-50 to-cyan-50 p-8 rounded-2xl border border-blue-100 hover:border-blue-300 transition-all duration-300">
+              <Eye className="w-12 h-12 text-blue-600 mb-4" />
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Brand Visibility Tracking</h3>
+              <p className="text-slate-600">
+                Monitor how often AI platforms mention your brand across different queries and contexts.
+              </p>
+            </div>
+
+            <div className="feature-card bg-gradient-to-br from-blue-50 to-cyan-50 p-8 rounded-2xl border border-blue-100 hover:border-blue-300 transition-all duration-300">
+              <Target className="w-12 h-12 text-blue-600 mb-4" />
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Competitor Analysis</h3>
+              <p className="text-slate-600">
+                See how you stack up against competitors and identify opportunities to improve.
+              </p>
+            </div>
+
+            <div className="feature-card bg-gradient-to-br from-blue-50 to-cyan-50 p-8 rounded-2xl border border-blue-100 hover:border-blue-300 transition-all duration-300">
+              <BarChart3 className="w-12 h-12 text-blue-600 mb-4" />
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Advanced Analytics</h3>
+              <p className="text-slate-600">
+                Deep insights into sentiment, share of voice, and performance trends over time.
+              </p>
+            </div>
+
+            <div className="feature-card bg-gradient-to-br from-blue-50 to-cyan-50 p-8 rounded-2xl border border-blue-100 hover:border-blue-300 transition-all duration-300">
+              <LineChart className="w-12 h-12 text-blue-600 mb-4" />
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Trend Analysis</h3>
+              <p className="text-slate-600">
+                Identify emerging trends and patterns in how AI platforms perceive your brand.
+              </p>
+            </div>
+
+            <div className="feature-card bg-gradient-to-br from-blue-50 to-cyan-50 p-8 rounded-2xl border border-blue-100 hover:border-blue-300 transition-all duration-300">
+              <Bell className="w-12 h-12 text-blue-600 mb-4" />
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Smart Alerts</h3>
+              <p className="text-slate-600">
+                Get notified instantly when there are significant changes in your brand visibility.
+              </p>
+            </div>
+
+            <div className="feature-card bg-gradient-to-br from-blue-50 to-cyan-50 p-8 rounded-2xl border border-blue-100 hover:border-blue-300 transition-all duration-300">
+              <Users className="w-12 h-12 text-blue-600 mb-4" />
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Team Collaboration</h3>
+              <p className="text-slate-600">
+                Share insights with your team and collaborate on improving brand visibility.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="how-it-works" className="py-20 bg-gradient-to-br from-slate-900 to-slate-800 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl lg:text-5xl font-bold mb-4">
+              How It Works
+            </h2>
+            <p className="text-xl text-slate-300 max-w-3xl mx-auto">
+              Get started in minutes with our simple three-step process
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-12">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-6">
+                1
+              </div>
+              <h3 className="text-2xl font-bold mb-4">Create Your Profile</h3>
+              <p className="text-slate-300 leading-relaxed">
+                Sign up and add your brand details. Tell us what you want to track and monitor.
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-6">
+                2
+              </div>
+              <h3 className="text-2xl font-bold mb-4">Run Your First Analysis</h3>
+              <p className="text-slate-300 leading-relaxed">
+                We query multiple AI platforms to see how they respond to queries related to your brand.
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-6">
+                3
+              </div>
+              <h3 className="text-2xl font-bold mb-4">Get Actionable Insights</h3>
+              <p className="text-slate-300 leading-relaxed">
+                Review detailed analytics and recommendations to improve your AI visibility.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="pricing" className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl lg:text-5xl font-bold text-slate-900 mb-4">
+              Simple, Transparent Pricing
+            </h2>
+            <p className="text-xl text-slate-600 max-w-3xl mx-auto">
+              Start free, upgrade when you need more
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            <div className="bg-slate-50 p-8 rounded-2xl border-2 border-slate-200">
+              <h3 className="text-2xl font-bold text-slate-900 mb-2">Free</h3>
+              <p className="text-slate-600 mb-6">Perfect for getting started</p>
+              <div className="mb-6">
+                <span className="text-5xl font-bold text-slate-900">$0</span>
+                <span className="text-slate-600">/month</span>
+              </div>
+              <ul className="space-y-4 mb-8">
+                <li className="flex items-start space-x-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-slate-600">5 AI queries per month</span>
+                </li>
+                <li className="flex items-start space-x-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-slate-600">Basic analytics</span>
+                </li>
+                <li className="flex items-start space-x-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-slate-600">1 brand profile</span>
+                </li>
+              </ul>
+              <button
+                onClick={() => navigate('/signup')}
+                className="w-full py-3 bg-slate-200 text-slate-900 rounded-xl font-semibold hover:bg-slate-300 transition-colors"
+              >
+                Get Started
+              </button>
+            </div>
+
+            <div className="bg-gradient-to-br from-blue-600 to-cyan-500 p-8 rounded-2xl border-2 border-blue-600 relative transform scale-105 shadow-2xl">
+              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-yellow-400 text-slate-900 px-4 py-1 rounded-full text-sm font-bold">
+                MOST POPULAR
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-2">Pro</h3>
+              <p className="text-blue-100 mb-6">For growing businesses</p>
+              <div className="mb-6">
+                <span className="text-5xl font-bold text-white">$49</span>
+                <span className="text-blue-100">/month</span>
+              </div>
+              <ul className="space-y-4 mb-8">
+                <li className="flex items-start space-x-3">
+                  <CheckCircle2 className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
+                  <span className="text-white">100 AI queries per month</span>
+                </li>
+                <li className="flex items-start space-x-3">
+                  <CheckCircle2 className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
+                  <span className="text-white">Advanced analytics</span>
+                </li>
+                <li className="flex items-start space-x-3">
+                  <CheckCircle2 className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
+                  <span className="text-white">5 brand profiles</span>
+                </li>
+                <li className="flex items-start space-x-3">
+                  <CheckCircle2 className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
+                  <span className="text-white">Priority support</span>
+                </li>
+              </ul>
+              <button
+                onClick={() => navigate('/signup')}
+                className="w-full py-3 bg-white text-blue-600 rounded-xl font-semibold hover:shadow-lg transition-all"
+              >
+                Start Free Trial
+              </button>
+            </div>
+
+            <div className="bg-slate-50 p-8 rounded-2xl border-2 border-slate-200">
+              <h3 className="text-2xl font-bold text-slate-900 mb-2">Enterprise</h3>
+              <p className="text-slate-600 mb-6">For large organizations</p>
+              <div className="mb-6">
+                <span className="text-5xl font-bold text-slate-900">Custom</span>
+              </div>
+              <ul className="space-y-4 mb-8">
+                <li className="flex items-start space-x-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-slate-600">Unlimited queries</span>
+                </li>
+                <li className="flex items-start space-x-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-slate-600">Custom integrations</span>
+                </li>
+                <li className="flex items-start space-x-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-slate-600">Unlimited brands</span>
+                </li>
+                <li className="flex items-start space-x-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-slate-600">Dedicated support</span>
+                </li>
+              </ul>
+              <button className="w-full py-3 bg-slate-200 text-slate-900 rounded-xl font-semibold hover:bg-slate-300 transition-colors">
+                Contact Sales
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-20 bg-gradient-to-r from-blue-600 to-cyan-500">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6">
+            Ready to dominate AI search?
+          </h2>
+          <p className="text-xl text-blue-100 mb-8">
+            Join thousands of brands already tracking their AI visibility
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button
+              onClick={() => navigate('/signup')}
+              className="px-8 py-4 bg-white text-blue-600 rounded-xl font-semibold hover:shadow-2xl hover:scale-105 transition-all duration-300"
+            >
+              Create Free Account
+            </button>
+            <button className="px-8 py-4 bg-transparent text-white rounded-xl font-semibold border-2 border-white hover:bg-white hover:text-blue-600 transition-all duration-300">
+              Book Free Demo
+            </button>
+          </div>
+          <p className="mt-4 text-blue-100">No credit card required</p>
+        </div>
+      </section>
+
+      <footer className="bg-slate-900 text-slate-400 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid md:grid-cols-4 gap-8 mb-8">
+            <div>
+              <div className="flex items-center space-x-2 mb-4">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-lg flex items-center justify-center">
+                  <Eye className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-lg font-bold text-white">BrandTracker</span>
+              </div>
+              <p className="text-sm">
+                The leading AI brand visibility tracking platform
+              </p>
+            </div>
+
+            <div>
+              <h4 className="text-white font-semibold mb-4">Product</h4>
+              <ul className="space-y-2 text-sm">
+                <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
+                <li><a href="#pricing" className="hover:text-white transition-colors">Pricing</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Integrations</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">API</a></li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="text-white font-semibold mb-4">Company</h4>
+              <ul className="space-y-2 text-sm">
+                <li><a href="#" className="hover:text-white transition-colors">About</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Careers</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Contact</a></li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="text-white font-semibold mb-4">Legal</h4>
+              <ul className="space-y-2 text-sm">
+                <li><a href="#" className="hover:text-white transition-colors">Privacy</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Terms</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Security</a></li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-800 pt-8 text-center text-sm">
+            <p>&copy; 2025 BrandTracker. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from './contexts/AuthContext';
+import Landing from './pages/Landing';
 import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
 import Onboarding from './pages/Onboarding';
@@ -36,6 +37,10 @@ export default function Router() {
         </div>
       </div>
     );
+  }
+
+  if (currentPath === '/') {
+    return <Landing />;
   }
 
   if (!user && currentPath !== '/signup' && currentPath !== '/signin') {
@@ -125,15 +130,6 @@ export default function Router() {
         <Admin />
       </ProtectedRoute>
     );
-  }
-
-  if (currentPath === '/') {
-    if (user) {
-      window.location.href = '/dashboard';
-    } else {
-      window.location.href = '/signin';
-    }
-    return null;
   }
 
   return (
