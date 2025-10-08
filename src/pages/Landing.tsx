@@ -278,7 +278,7 @@ export default function Landing() {
             </div>
             <div className="stat-item text-center">
               <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500 mb-2">
-                98%
+                100%
               </div>
               <p className="text-slate-600 font-medium">Accuracy Rate</p>
             </div>
