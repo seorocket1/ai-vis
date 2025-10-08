@@ -102,17 +102,24 @@ export async function checkPromptLimit(userId: string): Promise<{ allowed: boole
     const plan = await getUserPlan(userId);
     const limit = plan === 'pro' ? 50 : 5;
 
-    const { count } = await supabase
+    const { count, error } = await supabase
       .from('prompts')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId);
 
+    if (error) {
+      console.error('Error counting prompts:', error);
+      return { allowed: false, current: 0, limit };
+    }
+
     const current = count || 0;
     const allowed = current < limit;
 
+    console.log(`Prompt limit check for user ${userId}: current=${current}, limit=${limit}, allowed=${allowed}`);
+
     return { allowed, current, limit };
   } catch (error) {
-    console.error('Error checking prompt limit:', error);
+    console.error('Unexpected error checking prompt limit:', error);
     return { allowed: false, current: 0, limit: 5 };
   }
 }

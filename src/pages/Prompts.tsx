@@ -24,7 +24,7 @@ export default function Prompts() {
   const [newPromptText, setNewPromptText] = useState('');
   const [newPromptFrequency, setNewPromptFrequency] = useState('weekly');
   const [profile, setProfile] = useState<any>(null);
-  const [promptLimit, setPromptLimit] = useState({ current: 0, limit: 5 });
+  const [promptLimit, setPromptLimit] = useState({ current: 0, limit: 5, allowed: true });
   const [stats, setStats] = useState({
     brandCoverage: 0,
     avgSentiment: 0,
@@ -39,12 +39,11 @@ export default function Prompts() {
   const loadData = async () => {
     if (!user) return;
 
-    const [promptsResult, profileResult, metricsResult, executionsResult, limitCheck] = await Promise.all([
+    const [promptsResult, profileResult, metricsResult, executionsResult] = await Promise.all([
       supabase.from('prompts').select('*, prompt_executions(*)').eq('user_id', user.id).order('created_at', { ascending: false }),
       supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
       supabase.from('aggregated_metrics').select('*').eq('user_id', user.id).eq('time_period', 'all').maybeSingle(),
-      supabase.from('prompt_executions').select('id').eq('user_id', user.id).eq('status', 'completed'),
-      checkPromptLimit(user.id)
+      supabase.from('prompt_executions').select('id').eq('user_id', user.id).eq('status', 'completed')
     ]);
 
     const promptsWithExecution = (promptsResult.data || []).map(prompt => {
@@ -57,7 +56,15 @@ export default function Prompts() {
 
     setPrompts(promptsWithExecution);
     setProfile(profileResult.data);
-    setPromptLimit(limitCheck);
+
+    const plan = profileResult.data?.subscription_plan || 'free';
+    const limit = plan === 'pro' ? 50 : 5;
+    const current = promptsWithExecution.length;
+    const allowed = current < limit;
+
+    console.log(`Prompts page: current=${current}, limit=${limit}, allowed=${allowed}, plan=${plan}`);
+
+    setPromptLimit({ current, limit, allowed });
 
     const metrics = metricsResult.data;
     const totalExec = executionsResult.data?.length || 0;
