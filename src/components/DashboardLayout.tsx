@@ -10,6 +10,7 @@ import {
   Menu,
   X,
   BarChart3,
+  Shield,
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -18,7 +19,7 @@ interface DashboardLayoutProps {
 }
 
 export default function DashboardLayout({ children, currentPage }: DashboardLayoutProps) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleSignOut = async () => {
@@ -26,7 +27,7 @@ export default function DashboardLayout({ children, currentPage }: DashboardLayo
     window.location.href = '/signin';
   };
 
-  const menuItems = [
+  const baseMenuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', id: 'dashboard' },
     { icon: Target, label: 'Prompts', href: '/prompts', id: 'prompts' },
     { icon: BarChart3, label: 'Analytics', href: '/analytics', id: 'analytics' },
@@ -34,6 +35,10 @@ export default function DashboardLayout({ children, currentPage }: DashboardLayo
     { icon: Users, label: 'Competitor Analysis', href: '/competitor-analysis', id: 'competitor-analysis' },
     { icon: Settings, label: 'Settings', href: '/settings', id: 'settings' },
   ];
+
+  const adminMenuItem = { icon: Shield, label: 'Admin', href: '/admin', id: 'admin' };
+
+  const menuItems = isAdmin ? [...baseMenuItems, adminMenuItem] : baseMenuItems;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -100,7 +105,14 @@ export default function DashboardLayout({ children, currentPage }: DashboardLayo
               <p className="text-sm font-medium text-slate-900 truncate">
                 {user?.email}
               </p>
-              <p className="text-xs text-slate-500">Free Plan</p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-slate-500">Free Plan</p>
+                {isAdmin && (
+                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                    Admin
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <button

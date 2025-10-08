@@ -5,9 +5,8 @@ import DashboardLayout from '../components/DashboardLayout';
 import { Users, Activity, Target, TrendingUp, Shield, Ban, CheckCircle, XCircle } from 'lucide-react';
 
 export default function Admin() {
-  const { user } = useAuth();
+  const { user, isAdmin: isAdminUser } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -21,18 +20,7 @@ export default function Admin() {
   }, [user]);
 
   const loadData = async () => {
-    if (!user) return;
-
-    const profileResult = await supabase
-      .from('profiles')
-      .select('is_admin')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    const adminStatus = profileResult.data?.is_admin || false;
-    setIsAdmin(adminStatus);
-
-    if (!adminStatus) {
+    if (!user || !isAdminUser) {
       setLoading(false);
       return;
     }
@@ -74,7 +62,7 @@ export default function Admin() {
   };
 
   const toggleUserStatus = async (userId: string, currentOnboarding: boolean) => {
-    if (!isAdmin) return;
+    if (!isAdminUser) return;
 
     await supabase
       .from('profiles')
@@ -86,7 +74,7 @@ export default function Admin() {
 
   if (loading) {
     return (
-      <DashboardLayout currentPage="settings">
+      <DashboardLayout currentPage="admin">
         <div className="text-center py-12">
           <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
         </div>
@@ -94,16 +82,16 @@ export default function Admin() {
     );
   }
 
-  if (!isAdmin) {
+  if (!isAdminUser) {
     return (
-      <DashboardLayout currentPage="settings">
+      <DashboardLayout currentPage="admin">
         <div className="max-w-2xl mx-auto text-center py-16">
           <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <Ban className="w-10 h-10 text-red-600" />
           </div>
           <h2 className="text-2xl font-bold text-slate-900 mb-4">Access Denied</h2>
           <p className="text-slate-600 mb-6">
-            You do not have permission to access the admin panel.
+            You do not have permission to access the admin panel. Only nigamaakash101@gmail.com has admin access.
           </p>
           <a
             href="/dashboard"
@@ -117,7 +105,7 @@ export default function Admin() {
   }
 
   return (
-    <DashboardLayout currentPage="settings">
+    <DashboardLayout currentPage="admin">
       <div className="max-w-7xl mx-auto animate-fade-in">
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
