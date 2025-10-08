@@ -14,7 +14,7 @@ export default function OnboardingNew() {
   // Step 1: Brand details
   const [brandName, setBrandName] = useState('');
   const [website, setWebsite] = useState('');
-  const [location, setLocation] = useState('United States');
+  const [location, setLocation] = useState('India');
 
   // Step 2: Generated prompts
   const [suggestedPrompts, setSuggestedPrompts] = useState<string[]>([]);
@@ -25,7 +25,7 @@ export default function OnboardingNew() {
   const [analysisStarted, setAnalysisStarted] = useState(false);
 
   const countries = [
-    'United States', 'United Kingdom', 'Canada', 'Australia', 'India',
+    'India', 'United States', 'United Kingdom', 'Canada', 'Australia',
     'Germany', 'France', 'Singapore', 'Japan', 'Other'
   ];
 
