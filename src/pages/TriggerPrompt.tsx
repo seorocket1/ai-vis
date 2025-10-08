@@ -57,17 +57,34 @@ export default function TriggerPrompt() {
   const calculateAggregatedMetrics = async () => {
     if (!user || !profile) return;
 
-    const [execsResult, mentionsResult, sentimentsResult] = await Promise.all([
-      supabase.from('prompt_executions').select('*').eq('user_id', user.id).eq('status', 'completed'),
-      supabase.from('brand_mentions').select('*, prompt_executions!inner(user_id)').eq('prompt_executions.user_id', user.id),
-      supabase.from('sentiment_analysis').select('*,prompt_executions!inner(user_id)').eq('prompt_executions.user_id', user.id),
-    ]);
+    console.log('[Metrics] Calculating aggregated metrics for user:', user.id);
+
+    const execsResult = await supabase
+      .from('prompt_executions')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('status', 'completed');
+
+    console.log('[Metrics] Executions result:', execsResult);
 
     const executions = execsResult.data || [];
+    if (executions.length === 0) {
+      console.log('[Metrics] No executions found, skipping metrics calculation');
+      return;
+    }
+
+    const executionIds = executions.map(e => e.id);
+
+    const [mentionsResult, sentimentsResult] = await Promise.all([
+      supabase.from('brand_mentions').select('*').in('execution_id', executionIds),
+      supabase.from('sentiment_analysis').select('*').in('execution_id', executionIds),
+    ]);
+
+    console.log('[Metrics] Mentions result:', mentionsResult);
+    console.log('[Metrics] Sentiments result:', sentimentsResult);
+
     const mentions = mentionsResult.data || [];
     const sentiments = sentimentsResult.data || [];
-
-    if (executions.length === 0) return;
 
     const totalExecutions = executions.length;
     const platformsUsed = new Set(executions.map(e => e.platform)).size;
@@ -128,6 +145,8 @@ export default function TriggerPrompt() {
       updated_at: new Date().toISOString(),
     };
 
+    console.log('[Metrics] Calculated metrics:', metrics);
+
     const existingMetric = await supabase
       .from('aggregated_metrics')
       .select('id')
@@ -135,14 +154,20 @@ export default function TriggerPrompt() {
       .eq('time_period', 'all')
       .maybeSingle();
 
+    console.log('[Metrics] Existing metric:', existingMetric);
+
     if (existingMetric.data) {
-      await supabase
+      const updateResult = await supabase
         .from('aggregated_metrics')
         .update(metrics)
         .eq('id', existingMetric.data.id);
+      console.log('[Metrics] Update result:', updateResult);
     } else {
-      await supabase.from('aggregated_metrics').insert(metrics);
+      const insertResult = await supabase.from('aggregated_metrics').insert(metrics);
+      console.log('[Metrics] Insert result:', insertResult);
     }
+
+    console.log('[Metrics] Metrics calculation complete');
   };
 
   const handleTrigger = async () => {
