@@ -3,6 +3,28 @@
 -- Run this script in Supabase SQL Editor
 -- ============================================
 
+-- First, check if admin user exists and set onboarding_completed
+DO $$
+DECLARE
+  admin_user_id UUID;
+BEGIN
+  -- Get admin user ID
+  SELECT id INTO admin_user_id
+  FROM auth.users
+  WHERE email = 'nigamaakash101@gmail.com';
+
+  -- If admin exists, ensure their profile is properly set up
+  IF admin_user_id IS NOT NULL THEN
+    -- Update or insert admin profile
+    INSERT INTO profiles (id, is_admin, onboarding_completed)
+    VALUES (admin_user_id, true, true)
+    ON CONFLICT (id)
+    DO UPDATE SET
+      is_admin = true,
+      onboarding_completed = true;
+  END IF;
+END $$;
+
 -- 1. profiles: Allow users to insert their own profile
 DROP POLICY IF EXISTS "Users can insert own profile" ON profiles;
 CREATE POLICY "Users can insert own profile"

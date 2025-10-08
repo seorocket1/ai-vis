@@ -7,7 +7,7 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { user, loading } = useAuth();
+  const { user, loading, isAdmin } = useAuth();
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
 
@@ -16,11 +16,12 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
       if (user) {
         const { data } = await supabase
           .from('profiles')
-          .select('onboarding_completed')
+          .select('onboarding_completed, is_admin')
           .eq('id', user.id)
           .maybeSingle();
 
-        setOnboardingCompleted(data?.onboarding_completed ?? false);
+        // Admins bypass onboarding requirement
+        setOnboardingCompleted((data?.onboarding_completed ?? false) || (data?.is_admin ?? false));
       }
       setCheckingOnboarding(false);
     };
@@ -46,7 +47,8 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     return null;
   }
 
-  if (!onboardingCompleted) {
+  // Admins bypass onboarding
+  if (!onboardingCompleted && !isAdmin) {
     window.location.href = '/onboarding';
     return null;
   }
