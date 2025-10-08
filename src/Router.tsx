@@ -13,6 +13,9 @@ import Competitors from './pages/Competitors';
 import CompetitorAnalysis from './pages/CompetitorAnalysis';
 import Settings from './pages/Settings';
 import Admin from './pages/Admin';
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
+import Security from './pages/Security';
 import ProtectedRoute from './components/ProtectedRoute';
 
 export default function Router() {
@@ -41,6 +44,18 @@ export default function Router() {
 
   if (currentPath === '/') {
     return <Landing />;
+  }
+
+  if (currentPath === '/privacy') {
+    return <Privacy />;
+  }
+
+  if (currentPath === '/terms') {
+    return <Terms />;
+  }
+
+  if (currentPath === '/security') {
+    return <Security />;
   }
 
   if (!user && currentPath !== '/signup' && currentPath !== '/signin') {
