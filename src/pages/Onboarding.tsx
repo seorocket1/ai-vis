@@ -44,16 +44,39 @@ export default function Onboarding() {
     setError('');
 
     try {
-      const { error: profileError } = await supabase
+      // First, check if profile exists
+      const { data: existingProfile } = await supabase
         .from('profiles')
-        .update({
-          website_url: websiteUrl,
-          brand_name: brandName,
-          onboarding_completed: true,
-        })
-        .eq('id', user.id);
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
 
-      if (profileError) throw profileError;
+      if (!existingProfile) {
+        // Create profile if it doesn't exist
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            id: user.id,
+            email: user.email!,
+            website_url: websiteUrl,
+            brand_name: brandName,
+            onboarding_completed: true,
+          });
+
+        if (insertError) throw insertError;
+      } else {
+        // Update existing profile
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            website_url: websiteUrl,
+            brand_name: brandName,
+            onboarding_completed: true,
+          })
+          .eq('id', user.id);
+
+        if (updateError) throw updateError;
+      }
 
       const competitorData = competitors
         .filter(c => c.trim())
