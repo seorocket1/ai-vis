@@ -23,31 +23,44 @@ export default function Analytics() {
 
     console.log('[Analytics] Loading analytics for user:', user.id);
 
-    const [metricsResult, executionsResult, mentionsResult, sentimentsResult] = await Promise.all([
-      supabase.from('aggregated_metrics').select('*').eq('user_id', user.id).eq('time_period', 'all').maybeSingle(),
-      supabase.from('prompt_executions').select('*').eq('user_id', user.id).eq('status', 'completed').order('executed_at', { ascending: false }),
-      supabase.from('brand_mentions').select('*, prompt_executions!inner(user_id, platform)').eq('prompt_executions.user_id', user.id),
-      supabase.from('sentiment_analysis').select('*, prompt_executions!inner(user_id, platform)').eq('prompt_executions.user_id', user.id),
-    ]);
+    const metricsResult = await supabase.from('aggregated_metrics').select('*').eq('user_id', user.id).eq('time_period', 'all').maybeSingle();
+    const executionsResult = await supabase.from('prompt_executions').select('*').eq('user_id', user.id).eq('status', 'completed').order('executed_at', { ascending: false });
 
     console.log('[Analytics] Metrics result:', metricsResult);
     console.log('[Analytics] Executions count:', executionsResult.data?.length);
-    console.log('[Analytics] Mentions count:', mentionsResult.data?.length);
-    console.log('[Analytics] Sentiments count:', sentimentsResult.data?.length);
 
     if (metricsResult.error) {
       console.error('[Analytics] Error loading metrics:', metricsResult.error);
     }
 
+    const executions = executionsResult.data || [];
     setMetrics(metricsResult.data);
-    setExecutions(executionsResult.data || []);
-    setMentions(mentionsResult.data || []);
-    setSentiments(sentimentsResult.data || []);
+    setExecutions(executions);
+
+    if (executions.length === 0) {
+      setLoading(false);
+      return;
+    }
+
+    const executionIds = executions.map(e => e.id);
+
+    const [mentionsResult, sentimentsResult] = await Promise.all([
+      supabase.from('brand_mentions').select('*').in('execution_id', executionIds),
+      supabase.from('sentiment_analysis').select('*').in('execution_id', executionIds),
+    ]);
+
+    console.log('[Analytics] Mentions count:', mentionsResult.data?.length);
+    console.log('[Analytics] Sentiments count:', sentimentsResult.data?.length);
+
+    const mentions = mentionsResult.data || [];
+    const sentiments = sentimentsResult.data || [];
+
+    setMentions(mentions);
+    setSentiments(sentiments);
 
     const platformMetrics: Record<string, any> = {};
-    const execs = executionsResult.data || [];
 
-    execs.forEach((exec: any) => {
+    executions.forEach((exec: any) => {
       const platform = exec.platform || 'unknown';
       if (!platformMetrics[platform]) {
         platformMetrics[platform] = {
@@ -63,15 +76,17 @@ export default function Analytics() {
       platformMetrics[platform].executions += 1;
     });
 
-    (mentionsResult.data || []).forEach((mention: any) => {
-      const platform = mention.prompt_executions?.platform || 'unknown';
+    mentions.forEach((mention: any) => {
+      const execution = executions.find(e => e.id === mention.execution_id);
+      const platform = execution?.platform || 'unknown';
       if (platformMetrics[platform] && mention.is_user_brand) {
         platformMetrics[platform].mentions += mention.mention_count;
       }
     });
 
-    (sentimentsResult.data || []).forEach((sentiment: any) => {
-      const platform = sentiment.prompt_executions?.platform || 'unknown';
+    sentiments.forEach((sentiment: any) => {
+      const execution = executions.find(e => e.id === sentiment.execution_id);
+      const platform = execution?.platform || 'unknown';
       if (platformMetrics[platform]) {
         platformMetrics[platform].totalPositive += parseFloat(sentiment.positive_percentage) || 0;
         platformMetrics[platform].totalNeutral += parseFloat(sentiment.neutral_percentage) || 0;

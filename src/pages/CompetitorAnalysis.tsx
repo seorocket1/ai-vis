@@ -18,18 +18,37 @@ export default function CompetitorAnalysis() {
   const loadData = async () => {
     if (!user) return;
 
-    const [profileResult, mentionsResult, sentimentsResult, executionsResult, metricsResult] = await Promise.all([
-      supabase.from('profiles').select('brand_name').eq('id', user.id).maybeSingle(),
-      supabase.from('brand_mentions').select('*, prompt_executions!inner(user_id)').eq('prompt_executions.user_id', user.id),
-      supabase.from('sentiment_analysis').select('*, prompt_executions!inner(user_id)').eq('prompt_executions.user_id', user.id),
-      supabase.from('prompt_executions').select('id').eq('user_id', user.id).eq('status', 'completed'),
-      supabase.from('aggregated_metrics').select('*').eq('user_id', user.id).eq('time_period', 'all').maybeSingle(),
-    ]);
+    console.log('[CompetitorAnalysis] Loading data for user:', user.id);
+
+    const profileResult = await supabase.from('profiles').select('brand_name').eq('id', user.id).maybeSingle();
+    const executionsResult = await supabase.from('prompt_executions').select('id').eq('user_id', user.id).eq('status', 'completed');
+    const metricsResult = await supabase.from('aggregated_metrics').select('*').eq('user_id', user.id).eq('time_period', 'all').maybeSingle();
+
+    console.log('[CompetitorAnalysis] Profile:', profileResult.data);
+    console.log('[CompetitorAnalysis] Executions:', executionsResult.data?.length);
+    console.log('[CompetitorAnalysis] Metrics:', metricsResult.data);
 
     const userBrand = profileResult.data?.brand_name || '';
+    const totalExecutions = executionsResult.data?.length || 0;
+
+    if (totalExecutions === 0) {
+      console.log('[CompetitorAnalysis] No executions found');
+      setLoading(false);
+      return;
+    }
+
+    const executionIds = executionsResult.data?.map(e => e.id) || [];
+
+    const [mentionsResult, sentimentsResult] = await Promise.all([
+      supabase.from('brand_mentions').select('*').in('execution_id', executionIds),
+      supabase.from('sentiment_analysis').select('*').in('execution_id', executionIds),
+    ]);
+
+    console.log('[CompetitorAnalysis] Mentions:', mentionsResult.data?.length);
+    console.log('[CompetitorAnalysis] Sentiments:', sentimentsResult.data?.length);
+
     const mentions = mentionsResult.data || [];
     const sentiments = sentimentsResult.data || [];
-    const totalExecutions = executionsResult.data?.length || 0;
 
     setMetrics(metricsResult.data);
 
