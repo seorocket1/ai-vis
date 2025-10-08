@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { checkQueryLimit, incrementQueryUsage } from '../lib/queryLimits';
 import DashboardLayout from '../components/DashboardLayout';
-import { Play, ArrowLeft, Sparkles } from 'lucide-react';
+import { Play, ArrowLeft, Sparkles, AlertCircle } from 'lucide-react';
 
 interface Platform {
   id: string;
@@ -181,10 +182,23 @@ export default function TriggerPrompt() {
       return;
     }
 
+    const queryCheck = await checkQueryLimit(user.id);
+    if (!queryCheck.allowed) {
+      setError(`Query limit reached! You have used all ${queryCheck.limit} queries this month. Please upgrade to Pro for 500 queries/month or wait for your limit to reset.`);
+      return;
+    }
+
     setTriggering(true);
     setError('');
 
     try {
+      const success = await incrementQueryUsage(user.id);
+      if (!success) {
+        setError('Failed to track query usage. Please try again.');
+        setTriggering(false);
+        return;
+      }
+
       const executionIds: string[] = [];
 
       for (const platformId of selectedPlatforms) {

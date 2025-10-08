@@ -19,6 +19,12 @@ export interface Database {
           subscription_status: string
           subscription_end_date: string | null
           onboarding_completed: boolean
+          is_admin: boolean
+          subscription_plan: 'free' | 'pro'
+          plan_started_at: string
+          monthly_query_limit: number
+          queries_used_this_month: number
+          last_query_reset_at: string
           created_at: string
           updated_at: string
         }
@@ -31,6 +37,12 @@ export interface Database {
           subscription_status?: string
           subscription_end_date?: string | null
           onboarding_completed?: boolean
+          is_admin?: boolean
+          subscription_plan?: 'free' | 'pro'
+          plan_started_at?: string
+          monthly_query_limit?: number
+          queries_used_this_month?: number
+          last_query_reset_at?: string
           created_at?: string
           updated_at?: string
         }
@@ -43,6 +55,12 @@ export interface Database {
           subscription_status?: string
           subscription_end_date?: string | null
           onboarding_completed?: boolean
+          is_admin?: boolean
+          subscription_plan?: 'free' | 'pro'
+          plan_started_at?: string
+          monthly_query_limit?: number
+          queries_used_this_month?: number
+          last_query_reset_at?: string
           created_at?: string
           updated_at?: string
         }

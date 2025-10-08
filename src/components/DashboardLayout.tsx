@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import {
@@ -11,6 +11,7 @@ import {
   X,
   BarChart3,
   Shield,
+  Crown,
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -21,6 +22,31 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children, currentPage }: DashboardLayoutProps) {
   const { user, isAdmin } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userPlan, setUserPlan] = useState<'free' | 'pro'>('free');
+  const [queriesUsed, setQueriesUsed] = useState(0);
+  const [queryLimit, setQueryLimit] = useState(5);
+
+  useEffect(() => {
+    if (user) {
+      loadUserPlan();
+    }
+  }, [user]);
+
+  const loadUserPlan = async () => {
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('profiles')
+      .select('subscription_plan, queries_used_this_month, monthly_query_limit')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (data) {
+      setUserPlan(data.subscription_plan || 'free');
+      setQueriesUsed(data.queries_used_this_month || 0);
+      setQueryLimit(data.monthly_query_limit || 5);
+    }
+  };
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -105,14 +131,22 @@ export default function DashboardLayout({ children, currentPage }: DashboardLayo
               <p className="text-sm font-medium text-slate-900 truncate">
                 {user?.email}
               </p>
-              <div className="flex items-center gap-2">
-                <p className="text-xs text-slate-500">Free Plan</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1">
+                  {userPlan === 'pro' && <Crown className="w-3 h-3 text-yellow-500" />}
+                  <p className={`text-xs ${userPlan === 'pro' ? 'text-yellow-600 font-medium' : 'text-slate-500'}`}>
+                    {userPlan === 'pro' ? 'Pro Plan' : 'Free Plan'}
+                  </p>
+                </div>
                 {isAdmin && (
                   <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
                     Admin
                   </span>
                 )}
               </div>
+              <p className="text-xs text-slate-400 mt-1">
+                {queriesUsed}/{queryLimit} queries
+              </p>
             </div>
           </div>
           <button
