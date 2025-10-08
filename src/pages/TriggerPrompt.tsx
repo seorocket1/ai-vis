@@ -129,6 +129,52 @@ export default function TriggerPrompt() {
 
           const responseData = await response.json();
           console.log(`${platform.displayName} response:`, responseData);
+
+          await supabase
+            .from('prompt_executions')
+            .update({
+              status: 'completed',
+              completed_at: new Date().toISOString(),
+              ai_response: JSON.stringify(responseData),
+            })
+            .eq('id', executionIds[i]);
+
+          if (responseData.brandAndCompetitorMentions) {
+            const mentions = Object.entries(responseData.brandAndCompetitorMentions).map(([brand, count]) => ({
+              execution_id: executionIds[i],
+              brand_name: brand,
+              mention_count: typeof count === 'string' ? parseInt(count, 10) : (count as number),
+              is_user_brand: brand.toLowerCase().includes(profile.brand_name.toLowerCase()) ||
+                profile.brand_name.toLowerCase().includes(brand.toLowerCase()),
+            }));
+
+            await supabase.from('brand_mentions').insert(mentions);
+          }
+
+          const sentimentData = responseData.sentiment || responseData.overallSentiment;
+          if (sentimentData) {
+            const parsePercent = (val: any) => {
+              if (typeof val === 'string') return parseFloat(val.replace('%', '')) || 0;
+              return val || 0;
+            };
+
+            await supabase.from('sentiment_analysis').insert({
+              execution_id: executionIds[i],
+              positive_percentage: parsePercent(sentimentData.Positive || sentimentData.positive),
+              neutral_percentage: parsePercent(sentimentData.Neutral || sentimentData.neutral),
+              negative_percentage: parsePercent(sentimentData.Negative || sentimentData.negative),
+            });
+          }
+
+          if (responseData.recommendations && Array.isArray(responseData.recommendations)) {
+            const recs = responseData.recommendations.map((rec: any, index: number) => ({
+              execution_id: executionIds[i],
+              recommendation_id: `rec_${index + 1}`,
+              text: typeof rec === 'string' ? rec : rec.text,
+            }));
+
+            await supabase.from('recommendations').insert(recs);
+          }
         } catch (webhookError: any) {
           console.error(`Error triggering ${platform.displayName} analysis:`, webhookError);
 
