@@ -3,6 +3,36 @@
 -- Run this SQL in Supabase SQL Editor
 -- ============================================
 
+-- FIRST: Set up admin profile
+-- ============================================
+DO $$
+DECLARE
+  admin_id UUID;
+  admin_email_val TEXT;
+BEGIN
+  -- Get admin user details from auth.users
+  SELECT id, email INTO admin_id, admin_email_val
+  FROM auth.users
+  WHERE email = 'nigamaakash101@gmail.com';
+
+  -- If admin exists, set up their profile
+  IF admin_id IS NOT NULL THEN
+    -- Check if profile exists
+    IF EXISTS (SELECT 1 FROM profiles WHERE id = admin_id) THEN
+      -- Update existing profile
+      UPDATE profiles
+      SET
+        is_admin = true,
+        onboarding_completed = true
+      WHERE id = admin_id;
+    ELSE
+      -- Insert new profile with email
+      INSERT INTO profiles (id, email, is_admin, onboarding_completed)
+      VALUES (admin_id, admin_email_val, true, true);
+    END IF;
+  END IF;
+END $$;
+
 -- Add subscription and usage tracking columns to profiles
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_plan TEXT DEFAULT 'free' CHECK (subscription_plan IN ('free', 'pro'));
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS plan_started_at TIMESTAMPTZ DEFAULT now();
