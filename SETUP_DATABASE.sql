@@ -107,6 +107,13 @@ CREATE POLICY "Users can read own profile"
     )
   );
 
+-- Allow users to insert their own profile (for onboarding)
+DROP POLICY IF EXISTS "Users can insert own profile" ON profiles;
+CREATE POLICY "Users can insert own profile"
+  ON profiles FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = id);
+
 DROP POLICY IF EXISTS "Admins can update any profile" ON profiles;
 CREATE POLICY "Admins can update any profile"
   ON profiles FOR UPDATE
@@ -161,3 +168,24 @@ CREATE TRIGGER protect_subscription_fields
   BEFORE UPDATE ON profiles
   FOR EACH ROW
   EXECUTE FUNCTION prevent_protected_field_changes();
+
+-- Add INSERT policies for prompts table
+DROP POLICY IF EXISTS "Users can insert own prompts" ON prompts;
+CREATE POLICY "Users can insert own prompts"
+  ON prompts FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+-- Add INSERT policies for competitors table
+DROP POLICY IF EXISTS "Users can insert own competitors" ON competitors;
+CREATE POLICY "Users can insert own competitors"
+  ON competitors FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+-- Add INSERT policies for prompt_executions table
+DROP POLICY IF EXISTS "Users can insert own executions" ON prompt_executions;
+CREATE POLICY "Users can insert own executions"
+  ON prompt_executions FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = user_id);
