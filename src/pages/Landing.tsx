@@ -25,121 +25,82 @@ export default function Landing() {
 
   useEffect(() => {
     const loadGSAP = async () => {
-      const gsap = (await import('gsap')).default;
-      const ScrollTrigger = (await import('gsap/ScrollTrigger')).ScrollTrigger;
-      gsap.registerPlugin(ScrollTrigger);
+      try {
+        const gsap = (await import('gsap')).default;
 
-      gsap.from('.hero-badge', {
-        opacity: 0,
-        scale: 0.8,
-        duration: 0.6,
-        ease: 'back.out(1.7)'
-      });
+        const heroBadge = document.querySelector('.hero-badge');
+        const heroTitle = document.querySelector('.hero-title');
+        const heroSubtitle = document.querySelector('.hero-subtitle');
+        const heroCta = document.querySelector('.hero-cta');
+        const heroImage = document.querySelector('.hero-image');
 
-      gsap.from('.hero-title', {
-        opacity: 0,
-        y: 50,
-        duration: 1,
-        delay: 0.2,
-        ease: 'power3.out'
-      });
+        if (heroBadge) {
+          gsap.from(heroBadge, {
+            opacity: 0,
+            scale: 0.8,
+            duration: 0.6,
+            ease: 'back.out(1.7)'
+          });
+        }
 
-      gsap.from('.hero-subtitle', {
-        opacity: 0,
-        y: 30,
-        duration: 1,
-        delay: 0.5,
-        ease: 'power3.out'
-      });
+        if (heroTitle) {
+          gsap.from(heroTitle, {
+            opacity: 0,
+            y: 50,
+            duration: 1,
+            delay: 0.2,
+            ease: 'power3.out'
+          });
+        }
 
-      gsap.from('.hero-cta', {
-        opacity: 0,
-        y: 30,
-        duration: 1,
-        delay: 0.8,
-        ease: 'power3.out'
-      });
+        if (heroSubtitle) {
+          gsap.from(heroSubtitle, {
+            opacity: 0,
+            y: 30,
+            duration: 1,
+            delay: 0.5,
+            ease: 'power3.out'
+          });
+        }
 
-      gsap.from('.hero-image', {
-        opacity: 0,
-        x: 100,
-        duration: 1.2,
-        delay: 0.4,
-        ease: 'power3.out'
-      });
+        if (heroCta) {
+          gsap.from(heroCta, {
+            opacity: 0,
+            y: 30,
+            duration: 1,
+            delay: 0.8,
+            ease: 'power3.out'
+          });
+        }
 
-      gsap.from('.feature-card', {
-        scrollTrigger: {
-          trigger: '.features-section',
-          start: 'top 80%',
-        },
-        opacity: 0,
-        y: 50,
-        duration: 0.8,
-        stagger: 0.15,
-        ease: 'power3.out'
-      });
+        if (heroImage) {
+          gsap.from(heroImage, {
+            opacity: 0,
+            x: 100,
+            duration: 1.2,
+            delay: 0.4,
+            ease: 'power3.out'
+          });
+        }
 
-      gsap.from('.stat-item', {
-        scrollTrigger: {
-          trigger: '.stats-section',
-          start: 'top 80%',
-        },
-        opacity: 0,
-        scale: 0.5,
-        duration: 0.6,
-        stagger: 0.15,
-        ease: 'back.out(1.7)'
-      });
-
-      gsap.from('.usp-card', {
-        scrollTrigger: {
-          trigger: '.usp-section',
-          start: 'top 80%',
-        },
-        opacity: 0,
-        y: 50,
-        duration: 0.8,
-        stagger: 0.2,
-        ease: 'power3.out'
-      });
-
-      gsap.from('.step-item', {
-        scrollTrigger: {
-          trigger: '.how-it-works',
-          start: 'top 80%',
-        },
-        opacity: 0,
-        y: 50,
-        duration: 0.8,
-        stagger: 0.25,
-        ease: 'power3.out'
-      });
-
-      gsap.from('.pricing-card', {
-        scrollTrigger: {
-          trigger: '.pricing-section',
-          start: 'top 80%',
-        },
-        opacity: 0,
-        y: 50,
-        duration: 0.8,
-        stagger: 0.2,
-        ease: 'power3.out'
-      });
-
-      if (logoScrollRef.current) {
-        const logos = logoScrollRef.current;
-        gsap.to(logos, {
-          x: '-50%',
-          duration: 20,
-          ease: 'none',
-          repeat: -1,
-        });
+        if (logoScrollRef.current) {
+          gsap.to(logoScrollRef.current, {
+            x: '-50%',
+            duration: 20,
+            ease: 'none',
+            repeat: -1,
+          });
+        }
+      } catch (error) {
+        console.error('GSAP loading error:', error);
       }
     };
 
-    loadGSAP();
+    const timer = setTimeout(() => {
+      loadGSAP();
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const aiPlatforms = [
