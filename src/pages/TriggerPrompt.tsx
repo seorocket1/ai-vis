@@ -54,6 +54,97 @@ export default function TriggerPrompt() {
     );
   };
 
+  const calculateAggregatedMetrics = async () => {
+    if (!user || !profile) return;
+
+    const [execsResult, mentionsResult, sentimentsResult] = await Promise.all([
+      supabase.from('prompt_executions').select('*').eq('user_id', user.id).eq('status', 'completed'),
+      supabase.from('brand_mentions').select('*, prompt_executions!inner(user_id)').eq('prompt_executions.user_id', user.id),
+      supabase.from('sentiment_analysis').select('*,prompt_executions!inner(user_id)').eq('prompt_executions.user_id', user.id),
+    ]);
+
+    const executions = execsResult.data || [];
+    const mentions = mentionsResult.data || [];
+    const sentiments = sentimentsResult.data || [];
+
+    if (executions.length === 0) return;
+
+    const totalExecutions = executions.length;
+    const platformsUsed = new Set(executions.map(e => e.platform)).size;
+
+    const brandMentions = mentions.filter(m => m.is_user_brand);
+    const competitorMentions = mentions.filter(m => !m.is_user_brand);
+
+    const totalBrandMentions = brandMentions.reduce((sum, m) => sum + m.mention_count, 0);
+    const totalCompetitorMentions = competitorMentions.reduce((sum, m) => sum + m.mention_count, 0);
+    const totalMentions = totalBrandMentions + totalCompetitorMentions;
+
+    const shareOfVoice = totalMentions > 0 ? (totalBrandMentions / totalMentions) * 100 : 0;
+    const avgBrandVisibility = totalExecutions > 0 ? totalBrandMentions / totalExecutions : 0;
+
+    const avgPositive = sentiments.length > 0
+      ? sentiments.reduce((sum, s) => sum + parseFloat(s.positive_percentage || 0), 0) / sentiments.length
+      : 0;
+    const avgNeutral = sentiments.length > 0
+      ? sentiments.reduce((sum, s) => sum + parseFloat(s.neutral_percentage || 0), 0) / sentiments.length
+      : 0;
+    const avgNegative = sentiments.length > 0
+      ? sentiments.reduce((sum, s) => sum + parseFloat(s.negative_percentage || 0), 0) / sentiments.length
+      : 0;
+
+    const sentimentScore = avgPositive - avgNegative;
+
+    const competitorGroups: Record<string, number> = {};
+    competitorMentions.forEach(m => {
+      competitorGroups[m.brand_name] = (competitorGroups[m.brand_name] || 0) + m.mention_count;
+    });
+
+    const sortedCompetitors = Object.entries(competitorGroups).sort((a, b) => b[1] - a[1]);
+    const topCompetitor = sortedCompetitors.length > 0 ? sortedCompetitors[0][0] : null;
+
+    const allBrands = [
+      { name: profile.brand_name, count: totalBrandMentions },
+      ...sortedCompetitors.map(([name, count]) => ({ name, count })),
+    ].sort((a, b) => b.count - a.count);
+
+    const competitiveRank = allBrands.findIndex(b => b.name === profile.brand_name) + 1;
+
+    const metrics = {
+      user_id: user.id,
+      time_period: 'all',
+      total_executions: totalExecutions,
+      platform_coverage: platformsUsed,
+      total_brand_mentions: totalBrandMentions,
+      total_competitor_mentions: totalCompetitorMentions,
+      share_of_voice: shareOfVoice,
+      avg_brand_visibility: avgBrandVisibility,
+      avg_sentiment_score: sentimentScore,
+      avg_positive_sentiment: avgPositive,
+      avg_neutral_sentiment: avgNeutral,
+      avg_negative_sentiment: avgNegative,
+      competitive_rank: competitiveRank,
+      top_competitor: topCompetitor,
+      response_quality: avgPositive,
+      updated_at: new Date().toISOString(),
+    };
+
+    const existingMetric = await supabase
+      .from('aggregated_metrics')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('time_period', 'all')
+      .maybeSingle();
+
+    if (existingMetric.data) {
+      await supabase
+        .from('aggregated_metrics')
+        .update(metrics)
+        .eq('id', existingMetric.data.id);
+    } else {
+      await supabase.from('aggregated_metrics').insert(metrics);
+    }
+  };
+
   const handleTrigger = async () => {
     if (!user || !prompt || !profile?.brand_name) {
       setError('Brand name not found. Please update your profile settings.');
@@ -189,6 +280,7 @@ export default function TriggerPrompt() {
       }
 
       if (executionIds.length > 0) {
+        await calculateAggregatedMetrics();
         window.location.href = `/execution/${executionIds[0]}`;
       }
     } catch (err: any) {
