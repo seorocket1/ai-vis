@@ -3,7 +3,7 @@ import { useAuth } from './contexts/AuthContext';
 import Landing from './pages/Landing';
 import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
-import Onboarding from './pages/Onboarding';
+import OnboardingNew from './pages/OnboardingNew';
 import Dashboard from './pages/Dashboard';
 import Prompts from './pages/Prompts';
 import TriggerPrompt from './pages/TriggerPrompt';
@@ -72,7 +72,7 @@ export default function Router() {
   }
 
   if (currentPath === '/onboarding') {
-    return <Onboarding />;
+    return <OnboardingNew />;
   }
 
   if (currentPath === '/dashboard') {

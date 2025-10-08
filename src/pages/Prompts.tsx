@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import DashboardLayout from '../components/DashboardLayout';
-import { Plus, CreditCard as Edit2, Trash2, X, Play, Clock, Target, TrendingUp, Activity, Calendar } from 'lucide-react';
+import { Plus, CreditCard as Edit2, Trash2, X, Play, Clock, Target, TrendingUp, Activity, Calendar, Upload, PlayCircle, Check } from 'lucide-react';
 import { checkPromptLimit } from '../lib/queryLimits';
 
 interface Prompt {
@@ -10,6 +10,7 @@ interface Prompt {
   text: string;
   is_active: boolean;
   frequency: string;
+  platform?: string;
   last_triggered_at: string | null;
   created_at: string;
   executions?: any[];
@@ -23,6 +24,10 @@ export default function Prompts() {
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
   const [newPromptText, setNewPromptText] = useState('');
   const [newPromptFrequency, setNewPromptFrequency] = useState('weekly');
+  const [newPromptPlatform, setNewPromptPlatform] = useState('all');
+  const [isBulkMode, setIsBulkMode] = useState(false);
+  const [bulkPromptText, setBulkPromptText] = useState('');
+  const [selectedPrompts, setSelectedPrompts] = useState<string[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [promptLimit, setPromptLimit] = useState({ current: 0, limit: 5, allowed: true });
   const [stats, setStats] = useState({
@@ -99,23 +104,31 @@ export default function Prompts() {
         return;
       }
 
-      const { error } = await supabase.from('prompts').insert({
+      const { data: insertedData, error } = await supabase.from('prompts').insert({
         user_id: user.id,
         text: newPromptText,
         frequency: newPromptFrequency,
+        platform: newPromptPlatform,
         is_active: true,
-      });
+      }).select();
 
       if (error) {
         console.error('Error creating prompt:', error);
         alert(`Failed to create prompt: ${error.message}`);
         return;
       }
+
+      // Auto-trigger analysis for new prompt
+      if (insertedData && insertedData[0]) {
+        const promptId = insertedData[0].id;
+        triggerSinglePrompt(promptId);
+      }
     }
 
     setShowModal(false);
     setNewPromptText('');
     setNewPromptFrequency('weekly');
+    setNewPromptPlatform('all');
     setEditingPrompt(null);
     loadData();
   };
@@ -146,6 +159,97 @@ export default function Prompts() {
     window.location.href = `/trigger/${promptId}`;
   };
 
+  const triggerSinglePrompt = async (promptId: string) => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/trigger-analysis`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ promptId }),
+      });
+
+      if (!response.ok) {
+        console.error('Failed to trigger analysis');
+      }
+    } catch (error) {
+      console.error('Error triggering analysis:', error);
+    }
+  };
+
+  const handleBulkUpload = async () => {
+    if (!user || !bulkPromptText.trim()) return;
+
+    const lines = bulkPromptText.split('\n').filter(line => line.trim());
+
+    if (promptLimit.current + lines.length > promptLimit.limit) {
+      alert(`Cannot add ${lines.length} prompts. You have ${promptLimit.current}/${promptLimit.limit} prompts. ${promptLimit.limit === 5 ? 'Upgrade to Pro for 50 prompts!' : `You can only add ${promptLimit.limit - promptLimit.current} more.`}`);
+      return;
+    }
+
+    const promptsToInsert = lines.map(line => ({
+      user_id: user.id,
+      text: line.trim(),
+      frequency: newPromptFrequency,
+      platform: newPromptPlatform,
+      is_active: true,
+    }));
+
+    const { data, error } = await supabase.from('prompts').insert(promptsToInsert).select();
+
+    if (error) {
+      console.error('Error bulk uploading prompts:', error);
+      alert(`Failed to upload prompts: ${error.message}`);
+      return;
+    }
+
+    // Auto-trigger analysis for all new prompts
+    if (data) {
+      for (const prompt of data) {
+        triggerSinglePrompt(prompt.id);
+      }
+    }
+
+    setShowModal(false);
+    setBulkPromptText('');
+    setIsBulkMode(false);
+    loadData();
+  };
+
+  const handleBulkRun = async () => {
+    if (selectedPrompts.length === 0) {
+      alert('Please select at least one prompt to run');
+      return;
+    }
+
+    const confirmed = confirm(`Run analysis for ${selectedPrompts.length} selected prompt(s)?`);
+    if (!confirmed) return;
+
+    for (const promptId of selectedPrompts) {
+      await triggerSinglePrompt(promptId);
+    }
+
+    setSelectedPrompts([]);
+    alert(`Triggered analysis for ${selectedPrompts.length} prompt(s)!`);
+  };
+
+  const togglePromptSelection = (promptId: string) => {
+    setSelectedPrompts(prev =>
+      prev.includes(promptId)
+        ? prev.filter(id => id !== promptId)
+        : [...prev, promptId]
+    );
+  };
+
+  const selectAllPrompts = () => {
+    if (selectedPrompts.length === prompts.length) {
+      setSelectedPrompts([]);
+    } else {
+      setSelectedPrompts(prompts.map(p => p.id));
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout currentPage="prompts">
@@ -167,27 +271,55 @@ export default function Prompts() {
               <h1 className="text-3xl font-bold text-slate-900 mb-2">Tracked Queries</h1>
               <p className="text-slate-600">Manage prompts to monitor brand mentions across AI platforms</p>
             </div>
-            <button
-              onClick={() => {
-                if (!promptLimit.allowed) {
-                  alert(`You've reached your plan's limit of ${promptLimit.limit} prompts. ${promptLimit.limit === 5 ? 'Upgrade to Pro for 50 prompts!' : 'Please delete some prompts to add new ones.'}`);
-                  return;
-                }
-                setEditingPrompt(null);
-                setNewPromptText('');
-                setNewPromptFrequency('weekly');
-                setShowModal(true);
-              }}
-              disabled={!promptLimit.allowed}
-              className={`px-6 py-3 rounded-lg transition-all flex items-center gap-2 font-medium shadow-lg ${
-                promptLimit.allowed
-                  ? 'bg-gradient-to-r from-blue-600 to-emerald-600 text-white hover:from-blue-700 hover:to-emerald-700 hover:shadow-xl'
-                  : 'bg-slate-300 text-slate-500 cursor-not-allowed'
-              }`}
-            >
-              <Plus className="w-5 h-5" />
-              Add New Prompt {!promptLimit.allowed && `(${promptLimit.current}/${promptLimit.limit})`}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  if (!promptLimit.allowed) {
+                    alert(`You've reached your plan's limit of ${promptLimit.limit} prompts. ${promptLimit.limit === 5 ? 'Upgrade to Pro for 50 prompts!' : 'Please delete some prompts to add new ones.'}`);
+                    return;
+                  }
+                  setEditingPrompt(null);
+                  setNewPromptText('');
+                  setNewPromptFrequency('weekly');
+                  setNewPromptPlatform('all');
+                  setIsBulkMode(true);
+                  setBulkPromptText('');
+                  setShowModal(true);
+                }}
+                disabled={!promptLimit.allowed}
+                className={`px-6 py-3 rounded-lg transition-all flex items-center gap-2 font-medium shadow-lg ${
+                  promptLimit.allowed
+                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 hover:shadow-xl'
+                    : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                }`}
+              >
+                <Upload className="w-5 h-5" />
+                Bulk Upload
+              </button>
+              <button
+                onClick={() => {
+                  if (!promptLimit.allowed) {
+                    alert(`You've reached your plan's limit of ${promptLimit.limit} prompts. ${promptLimit.limit === 5 ? 'Upgrade to Pro for 50 prompts!' : 'Please delete some prompts to add new ones.'}`);
+                    return;
+                  }
+                  setEditingPrompt(null);
+                  setNewPromptText('');
+                  setNewPromptFrequency('weekly');
+                  setNewPromptPlatform('all');
+                  setIsBulkMode(false);
+                  setShowModal(true);
+                }}
+                disabled={!promptLimit.allowed}
+                className={`px-6 py-3 rounded-lg transition-all flex items-center gap-2 font-medium shadow-lg ${
+                  promptLimit.allowed
+                    ? 'bg-gradient-to-r from-blue-600 to-emerald-600 text-white hover:from-blue-700 hover:to-emerald-700 hover:shadow-xl'
+                    : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                }`}
+              >
+                <Plus className="w-5 h-5" />
+                Add New Prompt {!promptLimit.allowed && `(${promptLimit.current}/${promptLimit.limit})`}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -235,6 +367,38 @@ export default function Prompts() {
               <h2 className="text-xl font-bold text-slate-900">Your Prompts</h2>
               <p className="text-sm text-slate-600 mt-1">Track and manage all your monitored queries</p>
             </div>
+            {prompts.length > 0 && (
+              <div className="flex items-center gap-3">
+                {selectedPrompts.length > 0 && (
+                  <>
+                    <span className="text-sm text-slate-600">{selectedPrompts.length} selected</span>
+                    <button
+                      onClick={handleBulkRun}
+                      className="px-4 py-2 bg-gradient-to-r from-blue-600 to-emerald-600 text-white rounded-lg hover:from-blue-700 hover:to-emerald-700 transition-all flex items-center gap-2 font-medium shadow"
+                    >
+                      <PlayCircle className="w-4 h-4" />
+                      Run Selected
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={selectAllPrompts}
+                  className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-all flex items-center gap-2 font-medium"
+                >
+                  {selectedPrompts.length === prompts.length ? (
+                    <>
+                      <X className="w-4 h-4" />
+                      Deselect All
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Select All
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
 
           {prompts.length === 0 ? (
@@ -258,8 +422,10 @@ export default function Prompts() {
               <table className="w-full">
                 <thead className="border-b-2 border-slate-200">
                   <tr>
+                    <th className="text-left py-4 px-2 w-12"></th>
                     <th className="text-left py-4 px-4 text-sm font-semibold text-slate-700">Status</th>
                     <th className="text-left py-4 px-4 text-sm font-semibold text-slate-700">Query Text</th>
+                    <th className="text-center py-4 px-4 text-sm font-semibold text-slate-700">Platform</th>
                     <th className="text-center py-4 px-4 text-sm font-semibold text-slate-700">Update Frequency</th>
                     <th className="text-center py-4 px-4 text-sm font-semibold text-slate-700">Brand Mentioned</th>
                     <th className="text-center py-4 px-4 text-sm font-semibold text-slate-700">Sentiment</th>
@@ -315,6 +481,14 @@ export default function Prompts() {
 
                     return (
                       <tr key={prompt.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors group">
+                        <td className="py-4 px-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedPrompts.includes(prompt.id)}
+                            onChange={() => togglePromptSelection(prompt.id)}
+                            className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                          />
+                        </td>
                         <td className="py-4 px-4">
                           <button
                             onClick={() => handleToggleActive(prompt)}
@@ -340,6 +514,11 @@ export default function Prompts() {
                           ) : (
                             <p className="text-slate-900 font-medium line-clamp-2">{prompt.text}</p>
                           )}
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <span className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium capitalize">
+                            {prompt.platform || 'all'}
+                          </span>
                         </td>
                         <td className="py-4 px-4">
                           <div className="flex items-center justify-center gap-2">
@@ -419,23 +598,61 @@ export default function Prompts() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8 animate-scale-in">
               <h2 className="text-2xl font-bold text-slate-900 mb-6">
-                {editingPrompt ? 'Edit Prompt' : 'Create New Prompt'}
+                {editingPrompt ? 'Edit Prompt' : isBulkMode ? 'Bulk Upload Prompts' : 'Create New Prompt'}
               </h2>
 
               <div className="space-y-6">
+                {isBulkMode ? (
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Prompts (one per line)
+                    </label>
+                    <textarea
+                      value={bulkPromptText}
+                      onChange={(e) => setBulkPromptText(e.target.value)}
+                      placeholder="What are the best tax software for freelancers in India?&#10;Best AI tools to understand tax returns&#10;Most accurate tax filing software with live CPA support"
+                      rows={8}
+                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none font-mono text-sm"
+                    />
+                    <p className="text-xs text-slate-500 mt-2">
+                      Add one prompt per line. Each will be created as a separate query.
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Prompt Text
+                    </label>
+                    <textarea
+                      value={newPromptText}
+                      onChange={(e) => setNewPromptText(e.target.value)}
+                      placeholder="e.g., What are the best tax software for freelancers in India?"
+                      rows={4}
+                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
+                    />
+                    <p className="text-xs text-slate-500 mt-2">
+                      Be specific and natural - this is how users would ask AI platforms
+                    </p>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Prompt Text
+                    Target Platform
                   </label>
-                  <textarea
-                    value={newPromptText}
-                    onChange={(e) => setNewPromptText(e.target.value)}
-                    placeholder="e.g., What are the best tax software for freelancers in India?"
-                    rows={4}
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
-                  />
+                  <select
+                    value={newPromptPlatform}
+                    onChange={(e) => setNewPromptPlatform(e.target.value)}
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  >
+                    <option value="all">All Platforms</option>
+                    <option value="perplexity">Perplexity</option>
+                    <option value="chatgpt">ChatGPT</option>
+                    <option value="gemini">Gemini</option>
+                    <option value="claude">Claude</option>
+                  </select>
                   <p className="text-xs text-slate-500 mt-2">
-                    Be specific and natural - this is how users would ask AI platforms
+                    Select which AI platform to analyze this prompt on
                   </p>
                 </div>
 
@@ -453,7 +670,7 @@ export default function Prompts() {
                     <option value="monthly">Monthly - Run once a month</option>
                   </select>
                   <p className="text-xs text-slate-500 mt-2">
-                    How often should we analyze this prompt across AI platforms?
+                    How often should we analyze {isBulkMode ? 'these prompts' : 'this prompt'} across AI platforms?
                   </p>
                 </div>
 
@@ -463,18 +680,21 @@ export default function Prompts() {
                       setShowModal(false);
                       setEditingPrompt(null);
                       setNewPromptText('');
+                      setBulkPromptText('');
                       setNewPromptFrequency('weekly');
+                      setNewPromptPlatform('all');
+                      setIsBulkMode(false);
                     }}
                     className="flex-1 bg-slate-200 text-slate-700 py-3 rounded-lg font-medium hover:bg-slate-300 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
-                    onClick={handleCreateOrUpdate}
-                    disabled={!newPromptText.trim()}
+                    onClick={isBulkMode ? handleBulkUpload : handleCreateOrUpdate}
+                    disabled={isBulkMode ? !bulkPromptText.trim() : !newPromptText.trim()}
                     className="flex-1 bg-gradient-to-r from-blue-600 to-emerald-600 text-white py-3 rounded-lg font-medium hover:from-blue-700 hover:to-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {editingPrompt ? 'Update Prompt' : 'Create Prompt'}
+                    {editingPrompt ? 'Update Prompt' : isBulkMode ? 'Upload Prompts' : 'Create Prompt'}
                   </button>
                 </div>
               </div>
