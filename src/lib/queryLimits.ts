@@ -96,3 +96,23 @@ export async function getUserPlan(userId: string): Promise<'free' | 'pro'> {
 
   return data?.subscription_plan || 'free';
 }
+
+export async function checkPromptLimit(userId: string): Promise<{ allowed: boolean; current: number; limit: number }> {
+  try {
+    const plan = await getUserPlan(userId);
+    const limit = plan === 'pro' ? 50 : 5;
+
+    const { count } = await supabase
+      .from('prompts')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId);
+
+    const current = count || 0;
+    const allowed = current < limit;
+
+    return { allowed, current, limit };
+  } catch (error) {
+    console.error('Error checking prompt limit:', error);
+    return { allowed: false, current: 0, limit: 5 };
+  }
+}

@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import DashboardLayout from '../components/DashboardLayout';
 import { Plus, CreditCard as Edit2, Trash2, X, Play, Clock, Target, TrendingUp, Activity, Calendar } from 'lucide-react';
+import { checkPromptLimit } from '../lib/queryLimits';
 
 interface Prompt {
   id: string;
@@ -23,6 +24,7 @@ export default function Prompts() {
   const [newPromptText, setNewPromptText] = useState('');
   const [newPromptFrequency, setNewPromptFrequency] = useState('weekly');
   const [profile, setProfile] = useState<any>(null);
+  const [promptLimit, setPromptLimit] = useState({ current: 0, limit: 5 });
   const [stats, setStats] = useState({
     brandCoverage: 0,
     avgSentiment: 0,
@@ -37,11 +39,12 @@ export default function Prompts() {
   const loadData = async () => {
     if (!user) return;
 
-    const [promptsResult, profileResult, metricsResult, executionsResult] = await Promise.all([
+    const [promptsResult, profileResult, metricsResult, executionsResult, limitCheck] = await Promise.all([
       supabase.from('prompts').select('*, prompt_executions(*)').eq('user_id', user.id).order('created_at', { ascending: false }),
       supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
       supabase.from('aggregated_metrics').select('*').eq('user_id', user.id).eq('time_period', 'all').maybeSingle(),
-      supabase.from('prompt_executions').select('id').eq('user_id', user.id).eq('status', 'completed')
+      supabase.from('prompt_executions').select('id').eq('user_id', user.id).eq('status', 'completed'),
+      checkPromptLimit(user.id)
     ]);
 
     const promptsWithExecution = (promptsResult.data || []).map(prompt => {
@@ -54,6 +57,7 @@ export default function Prompts() {
 
     setPrompts(promptsWithExecution);
     setProfile(profileResult.data);
+    setPromptLimit(limitCheck);
 
     const metrics = metricsResult.data;
     const totalExec = executionsResult.data?.length || 0;
@@ -79,6 +83,13 @@ export default function Prompts() {
         .update({ text: newPromptText, frequency: newPromptFrequency })
         .eq('id', editingPrompt.id);
     } else {
+      const limitCheck = await checkPromptLimit(user.id);
+
+      if (!limitCheck.allowed) {
+        alert(`You've reached your plan's limit of ${limitCheck.limit} prompts. ${limitCheck.limit === 5 ? 'Upgrade to Pro for 50 prompts!' : 'Please delete some prompts to add new ones.'}`);
+        return;
+      }
+
       await supabase.from('prompts').insert({
         user_id: user.id,
         text: newPromptText,
@@ -143,15 +154,24 @@ export default function Prompts() {
             </div>
             <button
               onClick={() => {
+                if (!promptLimit.allowed) {
+                  alert(`You've reached your plan's limit of ${promptLimit.limit} prompts. ${promptLimit.limit === 5 ? 'Upgrade to Pro for 50 prompts!' : 'Please delete some prompts to add new ones.'}`);
+                  return;
+                }
                 setEditingPrompt(null);
                 setNewPromptText('');
                 setNewPromptFrequency('weekly');
                 setShowModal(true);
               }}
-              className="bg-gradient-to-r from-blue-600 to-emerald-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-emerald-700 transition-all flex items-center gap-2 font-medium shadow-lg hover:shadow-xl"
+              disabled={!promptLimit.allowed}
+              className={`px-6 py-3 rounded-lg transition-all flex items-center gap-2 font-medium shadow-lg ${
+                promptLimit.allowed
+                  ? 'bg-gradient-to-r from-blue-600 to-emerald-600 text-white hover:from-blue-700 hover:to-emerald-700 hover:shadow-xl'
+                  : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+              }`}
             >
               <Plus className="w-5 h-5" />
-              Add New Prompt
+              Add New Prompt {!promptLimit.allowed && `(${promptLimit.current}/${promptLimit.limit})`}
             </button>
           </div>
         </div>
@@ -163,7 +183,7 @@ export default function Prompts() {
               <span className="text-sm font-medium opacity-90">Active Prompts</span>
             </div>
             <p className="text-4xl font-bold mb-1">{activePrompts}</p>
-            <p className="text-sm opacity-90">of {prompts.length} total</p>
+            <p className="text-sm opacity-90">{promptLimit.current} of {promptLimit.limit} prompts used</p>
           </div>
 
           <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-6 text-white shadow-lg">
