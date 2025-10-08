@@ -85,17 +85,25 @@ export default function Prompts() {
     } else {
       const limitCheck = await checkPromptLimit(user.id);
 
+      console.log('Prompt limit check:', limitCheck);
+
       if (!limitCheck.allowed) {
-        alert(`You've reached your plan's limit of ${limitCheck.limit} prompts. ${limitCheck.limit === 5 ? 'Upgrade to Pro for 50 prompts!' : 'Please delete some prompts to add new ones.'}`);
+        alert(`You've reached your plan's limit of ${limitCheck.limit} prompts. You currently have ${limitCheck.current} prompts. ${limitCheck.limit === 5 ? 'Upgrade to Pro for 50 prompts!' : 'Please delete some prompts to add new ones.'}`);
         return;
       }
 
-      await supabase.from('prompts').insert({
+      const { error } = await supabase.from('prompts').insert({
         user_id: user.id,
         text: newPromptText,
         frequency: newPromptFrequency,
         is_active: true,
       });
+
+      if (error) {
+        console.error('Error creating prompt:', error);
+        alert(`Failed to create prompt: ${error.message}`);
+        return;
+      }
     }
 
     setShowModal(false);
