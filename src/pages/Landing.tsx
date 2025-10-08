@@ -13,15 +13,15 @@ import {
   Sparkles,
   LineChart,
   MessageSquare,
-  Bell
+  Bell,
+  Brain
 } from 'lucide-react';
 
 export default function Landing() {
   const navigate = (path: string) => {
     window.location.href = path;
   };
-  const heroRef = useRef<HTMLDivElement>(null);
-  const featuresRef = useRef<HTMLDivElement>(null);
+  const logoScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const loadGSAP = async () => {
@@ -29,10 +29,18 @@ export default function Landing() {
       const ScrollTrigger = (await import('gsap/ScrollTrigger')).ScrollTrigger;
       gsap.registerPlugin(ScrollTrigger);
 
+      gsap.from('.hero-badge', {
+        opacity: 0,
+        scale: 0.8,
+        duration: 0.6,
+        ease: 'back.out(1.7)'
+      });
+
       gsap.from('.hero-title', {
         opacity: 0,
         y: 50,
         duration: 1,
+        delay: 0.2,
         ease: 'power3.out'
       });
 
@@ -40,7 +48,7 @@ export default function Landing() {
         opacity: 0,
         y: 30,
         duration: 1,
-        delay: 0.3,
+        delay: 0.5,
         ease: 'power3.out'
       });
 
@@ -48,7 +56,15 @@ export default function Landing() {
         opacity: 0,
         y: 30,
         duration: 1,
-        delay: 0.6,
+        delay: 0.8,
+        ease: 'power3.out'
+      });
+
+      gsap.from('.hero-image', {
+        opacity: 0,
+        x: 100,
+        duration: 1.2,
+        delay: 0.4,
         ease: 'power3.out'
       });
 
@@ -60,7 +76,7 @@ export default function Landing() {
         opacity: 0,
         y: 50,
         duration: 0.8,
-        stagger: 0.2,
+        stagger: 0.15,
         ease: 'power3.out'
       });
 
@@ -75,10 +91,65 @@ export default function Landing() {
         stagger: 0.15,
         ease: 'back.out(1.7)'
       });
+
+      gsap.from('.usp-card', {
+        scrollTrigger: {
+          trigger: '.usp-section',
+          start: 'top 80%',
+        },
+        opacity: 0,
+        y: 50,
+        duration: 0.8,
+        stagger: 0.2,
+        ease: 'power3.out'
+      });
+
+      gsap.from('.step-item', {
+        scrollTrigger: {
+          trigger: '.how-it-works',
+          start: 'top 80%',
+        },
+        opacity: 0,
+        y: 50,
+        duration: 0.8,
+        stagger: 0.25,
+        ease: 'power3.out'
+      });
+
+      gsap.from('.pricing-card', {
+        scrollTrigger: {
+          trigger: '.pricing-section',
+          start: 'top 80%',
+        },
+        opacity: 0,
+        y: 50,
+        duration: 0.8,
+        stagger: 0.2,
+        ease: 'power3.out'
+      });
+
+      if (logoScrollRef.current) {
+        const logos = logoScrollRef.current;
+        gsap.to(logos, {
+          x: '-50%',
+          duration: 20,
+          ease: 'none',
+          repeat: -1,
+        });
+      }
     };
 
     loadGSAP();
   }, []);
+
+  const aiPlatforms = [
+    { name: 'ChatGPT', color: 'from-green-500 to-teal-500' },
+    { name: 'Claude', color: 'from-orange-500 to-amber-500' },
+    { name: 'Gemini', color: 'from-blue-500 to-indigo-500' },
+    { name: 'Perplexity', color: 'from-purple-500 to-pink-500' },
+    { name: 'Copilot', color: 'from-cyan-500 to-blue-500' },
+    { name: 'Meta AI', color: 'from-blue-600 to-purple-600' },
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50">
@@ -98,13 +169,13 @@ export default function Landing() {
               <a href="#pricing" className="text-slate-600 hover:text-slate-900 transition-colors">Pricing</a>
               <button
                 onClick={() => navigate('/signin')}
-                className="px-4 py-2 text-slate-600 hover:text-slate-900 transition-colors"
+                className="px-4 py-2 text-slate-600 hover:text-slate-900 transition-colors font-medium"
               >
                 Sign In
               </button>
               <button
                 onClick={() => navigate('/signup')}
-                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-lg hover:shadow-lg transition-all duration-300"
+                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-lg hover:shadow-lg transition-all duration-300 font-medium"
               >
                 Get Started
               </button>
@@ -119,11 +190,11 @@ export default function Landing() {
         </div>
       </header>
 
-      <section ref={heroRef} className="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
+      <section className="pt-32 pb-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
-              <div className="inline-flex items-center space-x-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-full mb-6">
+              <div className="hero-badge inline-flex items-center space-x-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-full mb-6">
                 <Sparkles className="w-4 h-4" />
                 <span className="text-sm font-medium">AI-Powered Brand Intelligence</span>
               </div>
@@ -140,7 +211,7 @@ export default function Landing() {
                 Get actionable insights to boost your visibility in the AI era.
               </p>
 
-              <div className="hero-cta flex flex-col sm:flex-row gap-4">
+              <div className="hero-cta flex flex-col sm:flex-row gap-4 mb-4">
                 <button
                   onClick={() => navigate('/signup')}
                   className="group px-8 py-4 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-xl font-semibold hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center justify-center space-x-2"
@@ -153,10 +224,10 @@ export default function Landing() {
                 </button>
               </div>
 
-              <p className="mt-4 text-sm text-slate-500">No credit card required • Free forever plan available</p>
+              <p className="text-sm text-slate-500">No credit card required • Free forever plan available</p>
             </div>
 
-            <div className="relative">
+            <div className="hero-image relative">
               <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-cyan-500 rounded-3xl blur-3xl opacity-20"></div>
               <div className="relative bg-white rounded-3xl shadow-2xl p-8 border border-slate-200">
                 <div className="space-y-4">
@@ -203,38 +274,64 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="stats-section py-20 bg-white">
+      <section className="py-12 bg-white overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8">
+          <div className="text-center">
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">Tracking All Major AI Platforms</h3>
+            <p className="text-slate-600">Real-time monitoring across the AI ecosystem</p>
+          </div>
+        </div>
+        <div className="relative">
+          <div className="flex overflow-hidden">
+            <div ref={logoScrollRef} className="flex space-x-12 px-6">
+              {[...aiPlatforms, ...aiPlatforms].map((platform, index) => (
+                <div
+                  key={index}
+                  className="flex-shrink-0 flex items-center space-x-3 bg-white px-8 py-4 rounded-2xl border-2 border-slate-200 shadow-sm"
+                >
+                  <div className={`w-10 h-10 bg-gradient-to-br ${platform.color} rounded-xl flex items-center justify-center`}>
+                    <Brain className="w-6 h-6 text-white" />
+                  </div>
+                  <span className="text-lg font-semibold text-slate-900 whitespace-nowrap">{platform.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="stats-section py-20 bg-gradient-to-br from-slate-50 to-blue-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-4 gap-8">
             <div className="stat-item text-center">
               <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500 mb-2">
                 10K+
               </div>
-              <p className="text-slate-600">Brands Tracked</p>
+              <p className="text-slate-600 font-medium">Brands Tracked</p>
             </div>
             <div className="stat-item text-center">
               <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500 mb-2">
                 5M+
               </div>
-              <p className="text-slate-600">AI Queries Analyzed</p>
+              <p className="text-slate-600 font-medium">AI Queries Analyzed</p>
             </div>
             <div className="stat-item text-center">
               <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500 mb-2">
                 98%
               </div>
-              <p className="text-slate-600">Accuracy Rate</p>
+              <p className="text-slate-600 font-medium">Accuracy Rate</p>
             </div>
             <div className="stat-item text-center">
               <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500 mb-2">
                 24/7
               </div>
-              <p className="text-slate-600">Real-time Monitoring</p>
+              <p className="text-slate-600 font-medium">Real-time Monitoring</p>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="py-20 bg-gradient-to-br from-slate-50 to-blue-50">
+      <section className="usp-section py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl lg:text-5xl font-bold text-slate-900 mb-4">
@@ -246,103 +343,103 @@ export default function Landing() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300">
+            <div className="usp-card bg-gradient-to-br from-slate-50 to-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-slate-100">
               <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center mb-6">
                 <Zap className="w-7 h-7 text-white" />
               </div>
               <h3 className="text-2xl font-bold text-slate-900 mb-4">Lightning Fast</h3>
               <p className="text-slate-600 leading-relaxed">
-                Get instant insights across multiple AI platforms in seconds. No more manual checking.
+                Get instant insights across multiple AI platforms in seconds. No more manual checking or waiting for reports.
               </p>
             </div>
 
-            <div className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300">
+            <div className="usp-card bg-gradient-to-br from-slate-50 to-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-slate-100">
               <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center mb-6">
                 <Shield className="w-7 h-7 text-white" />
               </div>
               <h3 className="text-2xl font-bold text-slate-900 mb-4">Enterprise Security</h3>
               <p className="text-slate-600 leading-relaxed">
-                Bank-level encryption and security. Your data is safe and never shared with third parties.
+                Bank-level encryption and security standards. Your data is safe and never shared with third parties.
               </p>
             </div>
 
-            <div className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300">
+            <div className="usp-card bg-gradient-to-br from-slate-50 to-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-slate-100">
               <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center mb-6">
                 <Globe className="w-7 h-7 text-white" />
               </div>
-              <h3 className="text-2xl font-bold text-slate-900 mb-4">Multi-Platform</h3>
+              <h3 className="text-2xl font-bold text-slate-900 mb-4">Multi-Platform Coverage</h3>
               <p className="text-slate-600 leading-relaxed">
-                Track your brand across ChatGPT, Claude, Gemini, and more AI platforms simultaneously.
+                Track your brand across ChatGPT, Claude, Gemini, Perplexity, and more AI platforms simultaneously.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      <section id="features" className="features-section py-20 bg-white">
+      <section id="features" className="features-section py-20 bg-gradient-to-br from-slate-50 to-blue-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl lg:text-5xl font-bold text-slate-900 mb-4">
               Powerful Features
             </h2>
             <p className="text-xl text-slate-600 max-w-3xl mx-auto">
-              Everything you need to dominate AI search results
+              Everything you need to dominate AI search results and track your brand visibility
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div className="feature-card bg-gradient-to-br from-blue-50 to-cyan-50 p-8 rounded-2xl border border-blue-100 hover:border-blue-300 transition-all duration-300">
+            <div className="feature-card bg-white p-8 rounded-2xl border-2 border-blue-100 hover:border-blue-300 hover:shadow-xl transition-all duration-300">
               <Eye className="w-12 h-12 text-blue-600 mb-4" />
               <h3 className="text-xl font-bold text-slate-900 mb-3">Brand Visibility Tracking</h3>
-              <p className="text-slate-600">
-                Monitor how often AI platforms mention your brand across different queries and contexts.
+              <p className="text-slate-600 leading-relaxed">
+                Monitor how often AI platforms mention your brand across different queries and contexts in real-time.
               </p>
             </div>
 
-            <div className="feature-card bg-gradient-to-br from-blue-50 to-cyan-50 p-8 rounded-2xl border border-blue-100 hover:border-blue-300 transition-all duration-300">
+            <div className="feature-card bg-white p-8 rounded-2xl border-2 border-blue-100 hover:border-blue-300 hover:shadow-xl transition-all duration-300">
               <Target className="w-12 h-12 text-blue-600 mb-4" />
               <h3 className="text-xl font-bold text-slate-900 mb-3">Competitor Analysis</h3>
-              <p className="text-slate-600">
-                See how you stack up against competitors and identify opportunities to improve.
+              <p className="text-slate-600 leading-relaxed">
+                See how you stack up against competitors and identify opportunities to improve your market position.
               </p>
             </div>
 
-            <div className="feature-card bg-gradient-to-br from-blue-50 to-cyan-50 p-8 rounded-2xl border border-blue-100 hover:border-blue-300 transition-all duration-300">
+            <div className="feature-card bg-white p-8 rounded-2xl border-2 border-blue-100 hover:border-blue-300 hover:shadow-xl transition-all duration-300">
               <BarChart3 className="w-12 h-12 text-blue-600 mb-4" />
               <h3 className="text-xl font-bold text-slate-900 mb-3">Advanced Analytics</h3>
-              <p className="text-slate-600">
-                Deep insights into sentiment, share of voice, and performance trends over time.
+              <p className="text-slate-600 leading-relaxed">
+                Deep insights into sentiment analysis, share of voice, and performance trends over time.
               </p>
             </div>
 
-            <div className="feature-card bg-gradient-to-br from-blue-50 to-cyan-50 p-8 rounded-2xl border border-blue-100 hover:border-blue-300 transition-all duration-300">
+            <div className="feature-card bg-white p-8 rounded-2xl border-2 border-blue-100 hover:border-blue-300 hover:shadow-xl transition-all duration-300">
               <LineChart className="w-12 h-12 text-blue-600 mb-4" />
               <h3 className="text-xl font-bold text-slate-900 mb-3">Trend Analysis</h3>
-              <p className="text-slate-600">
-                Identify emerging trends and patterns in how AI platforms perceive your brand.
+              <p className="text-slate-600 leading-relaxed">
+                Identify emerging trends and patterns in how AI platforms perceive and recommend your brand.
               </p>
             </div>
 
-            <div className="feature-card bg-gradient-to-br from-blue-50 to-cyan-50 p-8 rounded-2xl border border-blue-100 hover:border-blue-300 transition-all duration-300">
+            <div className="feature-card bg-white p-8 rounded-2xl border-2 border-blue-100 hover:border-blue-300 hover:shadow-xl transition-all duration-300">
               <Bell className="w-12 h-12 text-blue-600 mb-4" />
               <h3 className="text-xl font-bold text-slate-900 mb-3">Smart Alerts</h3>
-              <p className="text-slate-600">
-                Get notified instantly when there are significant changes in your brand visibility.
+              <p className="text-slate-600 leading-relaxed">
+                Get notified instantly when there are significant changes in your brand visibility or sentiment.
               </p>
             </div>
 
-            <div className="feature-card bg-gradient-to-br from-blue-50 to-cyan-50 p-8 rounded-2xl border border-blue-100 hover:border-blue-300 transition-all duration-300">
+            <div className="feature-card bg-white p-8 rounded-2xl border-2 border-blue-100 hover:border-blue-300 hover:shadow-xl transition-all duration-300">
               <Users className="w-12 h-12 text-blue-600 mb-4" />
               <h3 className="text-xl font-bold text-slate-900 mb-3">Team Collaboration</h3>
-              <p className="text-slate-600">
-                Share insights with your team and collaborate on improving brand visibility.
+              <p className="text-slate-600 leading-relaxed">
+                Share insights with your team and collaborate on strategies to improve brand visibility.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      <section id="how-it-works" className="py-20 bg-gradient-to-br from-slate-900 to-slate-800 text-white">
+      <section id="how-it-works" className="how-it-works py-20 bg-gradient-to-br from-slate-900 to-slate-800 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl lg:text-5xl font-bold mb-4">
@@ -354,52 +451,52 @@ export default function Landing() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-12">
-            <div className="text-center">
+            <div className="step-item text-center">
               <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-6">
                 1
               </div>
               <h3 className="text-2xl font-bold mb-4">Create Your Profile</h3>
               <p className="text-slate-300 leading-relaxed">
-                Sign up and add your brand details. Tell us what you want to track and monitor.
+                Sign up in seconds and add your brand details. Tell us what you want to track and who your competitors are.
               </p>
             </div>
 
-            <div className="text-center">
+            <div className="step-item text-center">
               <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-6">
                 2
               </div>
               <h3 className="text-2xl font-bold mb-4">Run Your First Analysis</h3>
               <p className="text-slate-300 leading-relaxed">
-                We query multiple AI platforms to see how they respond to queries related to your brand.
+                We query multiple AI platforms instantly to see how they respond to queries related to your brand and industry.
               </p>
             </div>
 
-            <div className="text-center">
+            <div className="step-item text-center">
               <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-6">
                 3
               </div>
               <h3 className="text-2xl font-bold mb-4">Get Actionable Insights</h3>
               <p className="text-slate-300 leading-relaxed">
-                Review detailed analytics and recommendations to improve your AI visibility.
+                Review detailed analytics, sentiment scores, and personalized recommendations to improve your AI visibility.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      <section id="pricing" className="py-20 bg-white">
+      <section id="pricing" className="pricing-section py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl lg:text-5xl font-bold text-slate-900 mb-4">
               Simple, Transparent Pricing
             </h2>
             <p className="text-xl text-slate-600 max-w-3xl mx-auto">
-              Start free, upgrade when you need more
+              Start free, upgrade when you need more. No hidden fees or surprises.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            <div className="bg-slate-50 p-8 rounded-2xl border-2 border-slate-200">
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            <div className="pricing-card bg-slate-50 p-8 rounded-2xl border-2 border-slate-200 hover:shadow-lg transition-all duration-300">
               <h3 className="text-2xl font-bold text-slate-900 mb-2">Free</h3>
               <p className="text-slate-600 mb-6">Perfect for getting started</p>
               <div className="mb-6">
@@ -413,11 +510,15 @@ export default function Landing() {
                 </li>
                 <li className="flex items-start space-x-3">
                   <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-slate-600">Basic analytics</span>
+                  <span className="text-slate-600">Basic analytics dashboard</span>
                 </li>
                 <li className="flex items-start space-x-3">
                   <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
                   <span className="text-slate-600">1 brand profile</span>
+                </li>
+                <li className="flex items-start space-x-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-slate-600">Email support</span>
                 </li>
               </ul>
               <button
@@ -428,24 +529,24 @@ export default function Landing() {
               </button>
             </div>
 
-            <div className="bg-gradient-to-br from-blue-600 to-cyan-500 p-8 rounded-2xl border-2 border-blue-600 relative transform scale-105 shadow-2xl">
+            <div className="pricing-card bg-gradient-to-br from-blue-600 to-cyan-500 p-8 rounded-2xl border-2 border-blue-600 relative transform md:scale-105 shadow-2xl">
               <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-yellow-400 text-slate-900 px-4 py-1 rounded-full text-sm font-bold">
                 MOST POPULAR
               </div>
               <h3 className="text-2xl font-bold text-white mb-2">Pro</h3>
               <p className="text-blue-100 mb-6">For growing businesses</p>
               <div className="mb-6">
-                <span className="text-5xl font-bold text-white">$49</span>
+                <span className="text-5xl font-bold text-white">$250</span>
                 <span className="text-blue-100">/month</span>
               </div>
               <ul className="space-y-4 mb-8">
                 <li className="flex items-start space-x-3">
                   <CheckCircle2 className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
-                  <span className="text-white">100 AI queries per month</span>
+                  <span className="text-white font-medium">500 AI queries per month</span>
                 </li>
                 <li className="flex items-start space-x-3">
                   <CheckCircle2 className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
-                  <span className="text-white">Advanced analytics</span>
+                  <span className="text-white">Advanced analytics & reporting</span>
                 </li>
                 <li className="flex items-start space-x-3">
                   <CheckCircle2 className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
@@ -453,7 +554,15 @@ export default function Landing() {
                 </li>
                 <li className="flex items-start space-x-3">
                   <CheckCircle2 className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
+                  <span className="text-white">Competitor tracking</span>
+                </li>
+                <li className="flex items-start space-x-3">
+                  <CheckCircle2 className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
                   <span className="text-white">Priority support</span>
+                </li>
+                <li className="flex items-start space-x-3">
+                  <CheckCircle2 className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
+                  <span className="text-white">Custom alerts</span>
                 </li>
               </ul>
               <button
@@ -464,7 +573,7 @@ export default function Landing() {
               </button>
             </div>
 
-            <div className="bg-slate-50 p-8 rounded-2xl border-2 border-slate-200">
+            <div className="pricing-card bg-slate-50 p-8 rounded-2xl border-2 border-slate-200 hover:shadow-lg transition-all duration-300">
               <h3 className="text-2xl font-bold text-slate-900 mb-2">Enterprise</h3>
               <p className="text-slate-600 mb-6">For large organizations</p>
               <div className="mb-6">
@@ -473,19 +582,27 @@ export default function Landing() {
               <ul className="space-y-4 mb-8">
                 <li className="flex items-start space-x-3">
                   <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-slate-600">Unlimited queries</span>
+                  <span className="text-slate-600">Unlimited AI queries</span>
                 </li>
                 <li className="flex items-start space-x-3">
                   <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-slate-600">Custom integrations</span>
+                  <span className="text-slate-600">Custom integrations & API</span>
                 </li>
                 <li className="flex items-start space-x-3">
                   <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-slate-600">Unlimited brands</span>
+                  <span className="text-slate-600">Unlimited brand profiles</span>
                 </li>
                 <li className="flex items-start space-x-3">
                   <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span className="text-slate-600">Dedicated support</span>
+                  <span className="text-slate-600">White-label options</span>
+                </li>
+                <li className="flex items-start space-x-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-slate-600">Dedicated account manager</span>
+                </li>
+                <li className="flex items-start space-x-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-slate-600">24/7 phone support</span>
                 </li>
               </ul>
               <button className="w-full py-3 bg-slate-200 text-slate-900 rounded-xl font-semibold hover:bg-slate-300 transition-colors">
@@ -502,7 +619,7 @@ export default function Landing() {
             Ready to dominate AI search?
           </h2>
           <p className="text-xl text-blue-100 mb-8">
-            Join thousands of brands already tracking their AI visibility
+            Join thousands of brands already tracking their AI visibility and staying ahead of the competition
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
@@ -515,7 +632,7 @@ export default function Landing() {
               Book Free Demo
             </button>
           </div>
-          <p className="mt-4 text-blue-100">No credit card required</p>
+          <p className="mt-4 text-blue-100">No credit card required • Setup in under 5 minutes</p>
         </div>
       </section>
 
@@ -529,8 +646,8 @@ export default function Landing() {
                 </div>
                 <span className="text-lg font-bold text-white">BrandTracker</span>
               </div>
-              <p className="text-sm">
-                The leading AI brand visibility tracking platform
+              <p className="text-sm leading-relaxed">
+                The leading AI brand visibility tracking platform for modern businesses.
               </p>
             </div>
 
@@ -540,14 +657,14 @@ export default function Landing() {
                 <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
                 <li><a href="#pricing" className="hover:text-white transition-colors">Pricing</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">Integrations</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">API</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">API Documentation</a></li>
               </ul>
             </div>
 
             <div>
               <h4 className="text-white font-semibold mb-4">Company</h4>
               <ul className="space-y-2 text-sm">
-                <li><a href="#" className="hover:text-white transition-colors">About</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">About Us</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">Careers</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">Contact</a></li>
@@ -557,9 +674,10 @@ export default function Landing() {
             <div>
               <h4 className="text-white font-semibold mb-4">Legal</h4>
               <ul className="space-y-2 text-sm">
-                <li><a href="#" className="hover:text-white transition-colors">Privacy</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Terms</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Terms of Service</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">Security</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Cookie Policy</a></li>
               </ul>
             </div>
           </div>
