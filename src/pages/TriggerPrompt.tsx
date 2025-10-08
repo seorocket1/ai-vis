@@ -97,7 +97,7 @@ export default function TriggerPrompt() {
         .update({ last_triggered_at: new Date().toISOString() })
         .eq('id', prompt.id);
 
-      const edgeFunctionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/trigger-analysis`;
+      const n8nWebhookUrl = 'https://n8n.seoengine.agency/webhook/84366642-2502-4684-baac-18e950410124';
 
       for (let i = 0; i < selectedPlatforms.length; i++) {
         const platformId = selectedPlatforms[i];
@@ -107,10 +107,9 @@ export default function TriggerPrompt() {
         try {
           console.log(`Triggering ${platform.displayName} analysis`);
 
-          const response = await fetch(edgeFunctionUrl, {
+          const response = await fetch(n8nWebhookUrl, {
             method: 'POST',
             headers: {
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
