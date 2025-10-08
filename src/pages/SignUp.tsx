@@ -25,18 +25,8 @@ export default function SignUp() {
     }
 
     if (data.user) {
-      const { error: profileError } = await supabase.from('profiles').insert({
-        id: data.user.id,
-        email: data.user.email!,
-        onboarding_completed: false,
-      });
-
-      if (profileError) {
-        setError('Account created but profile setup failed. Please contact support.');
-        setLoading(false);
-      } else {
-        window.location.href = '/onboarding';
-      }
+      // Profile will be created during onboarding
+      window.location.href = '/onboarding';
     }
   };
 

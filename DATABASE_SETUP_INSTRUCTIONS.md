@@ -1,8 +1,14 @@
-# Database Setup Instructions
+# Database Setup Instructions - UPDATED
 
-## ⚠️ IMPORTANT: Complete Database Setup Required
+## ⚠️ CRITICAL: Run COMPLETE_FIX.sql Instead
 
-The subscription management features require additional database columns that need to be added to your Supabase database.
+**DO NOT USE THE OLD SETUP_DATABASE.sql FILE**
+
+Use `COMPLETE_FIX.sql` which includes:
+- All subscription features
+- Fixed RLS policies (no infinite recursion)
+- Auto-profile creation trigger
+- All INSERT policies for tables
 
 ## Quick Setup (5 minutes)
 

@@ -4,9 +4,10 @@
 
 ### Problems Solved:
 1. ✅ **Infinite recursion in RLS policies** - Policies were checking themselves
-2. ✅ **Onboarding fails for new users** - Profile creation fixed
+2. ✅ **Onboarding fails for new users** - Profile auto-creation trigger added
 3. ✅ **Admin can't see users** - RLS policies use email check instead of recursive query
 4. ✅ **Trigger prompt analysis fails** - INSERT policies added
+5. ✅ **"Profile setup failed" on signup** - Database trigger auto-creates profiles
 
 ## Step-by-Step Instructions
 
@@ -18,7 +19,7 @@
 
 ### Step 2: Run COMPLETE_FIX.sql
 1. Open the file: `COMPLETE_FIX.sql`
-2. Copy the **ENTIRE file contents** (all ~300+ lines)
+2. Copy the **ENTIRE file contents** (all ~315 lines including new trigger)
 3. Paste into the SQL Editor
 4. Click **"Run"** button
 

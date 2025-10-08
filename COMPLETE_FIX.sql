@@ -282,7 +282,32 @@ CREATE TRIGGER protect_subscription_fields
   FOR EACH ROW
   EXECUTE FUNCTION prevent_protected_field_changes();
 
+-- PART 5: Auto-create profile trigger (optional but recommended)
+-- ============================================
+-- This automatically creates a profile when a new user signs up
+-- So users don't need to manually create profiles
+
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, onboarding_completed)
+  VALUES (NEW.id, NEW.email, false)
+  ON CONFLICT (id) DO NOTHING;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Drop trigger if it exists
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+
+-- Create trigger on auth.users table
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION handle_new_user();
+
 -- ============================================
 -- DONE! All policies fixed.
 -- No more infinite recursion!
+-- Profiles will be auto-created on signup!
 -- ============================================
