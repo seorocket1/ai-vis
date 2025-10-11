@@ -41,6 +41,22 @@ export default function Prompts() {
     loadData();
   }, [user]);
 
+  // Poll for updates when there are processing executions
+  useEffect(() => {
+    const hasProcessing = prompts.some(p =>
+      (p.prompt_executions as any[])?.some((e: any) => e.status === 'processing')
+    );
+
+    if (!hasProcessing) return;
+
+    const interval = setInterval(() => {
+      console.log('Polling for execution updates...');
+      loadData();
+    }, 10000); // Poll every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [prompts, user]);
+
   const loadData = async () => {
     if (!user) return;
 
@@ -217,23 +233,127 @@ export default function Prompts() {
       // Call n8n webhook
       const n8nWebhookUrl = 'https://n8n.seoengine.agency/webhook/84366642-2502-4684-baac-18e950410124';
 
-      await fetch(n8nWebhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          Model: modelName,
-          Platform: promptPlatform,
-          Prompt: promptData.text,
-          Brand: profile.brand_name,
-          executionId: execution.id,
-        }),
-      });
+      try {
+        const response = await fetch(n8nWebhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            Model: modelName,
+            Platform: promptPlatform,
+            Prompt: promptData.text,
+            Brand: profile.brand_name,
+            executionId: execution.id,
+          }),
+        });
 
-      console.log('Analysis triggered for prompt:', promptId, 'on platform:', promptPlatform);
+        if (!response.ok) {
+          console.error('n8n webhook failed:', response.status);
+          await supabase
+            .from('prompt_executions')
+            .update({ status: 'failed' })
+            .eq('id', execution.id);
+        } else {
+          console.log('Analysis triggered for prompt:', promptId, 'on platform:', promptPlatform);
+        }
+      } catch (webhookError) {
+        console.error('Error calling n8n webhook:', webhookError);
+        await supabase
+          .from('prompt_executions')
+          .update({ status: 'failed' })
+          .eq('id', execution.id);
+      }
     } catch (error) {
       console.error('Error triggering analysis:', error);
+    }
+  };
+
+  const triggerBulkPrompts = async (promptIds: string[]) => {
+    if (!user || !profile || !profile.brand_name) return;
+
+    try {
+      // Get all prompt details
+      const { data: prompts } = await supabase
+        .from('prompts')
+        .select('*')
+        .in('id', promptIds);
+
+      if (!prompts || prompts.length === 0) {
+        console.error('No prompts found');
+        return;
+      }
+
+      // Create execution records for all prompts
+      const executionsToCreate = prompts.map(prompt => ({
+        prompt_id: prompt.id,
+        user_id: user.id,
+        model: 'Gemini',
+        platform: prompt.platform || 'gemini',
+        status: 'processing',
+      }));
+
+      const { data: executions } = await supabase
+        .from('prompt_executions')
+        .insert(executionsToCreate)
+        .select();
+
+      if (!executions || executions.length === 0) {
+        console.error('Failed to create executions');
+        return;
+      }
+
+      // Update last triggered for all prompts
+      await supabase
+        .from('prompts')
+        .update({ last_triggered_at: new Date().toISOString() })
+        .in('id', promptIds);
+
+      // Refresh UI
+      loadData();
+
+      // Prepare prompts array for n8n with executionIds
+      const promptsArray = prompts.map((prompt, index) => ({
+        text: prompt.text,
+        executionId: executions[index]?.id,
+      }));
+
+      // Call n8n webhook with bulk format
+      const n8nWebhookUrl = 'https://n8n.seoengine.agency/webhook/84366642-2502-4684-baac-18e950410124';
+
+      try {
+        const response = await fetch(n8nWebhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            Model: 'Gemini',
+            Brand: profile.brand_name,
+            Prompts: promptsArray,
+          }),
+        });
+
+        if (!response.ok) {
+          console.error('Bulk n8n webhook failed:', response.status);
+          // Mark all executions as failed
+          await supabase
+            .from('prompt_executions')
+            .update({ status: 'failed' })
+            .in('id', executions.map(e => e.id));
+        } else {
+          console.log('Bulk analysis triggered for', prompts.length, 'prompts');
+        }
+      } catch (webhookError) {
+        console.error('Error calling bulk n8n webhook:', webhookError);
+        // Mark all executions as failed
+        await supabase
+          .from('prompt_executions')
+          .update({ status: 'failed' })
+          .in('id', executions.map(e => e.id));
+      }
+    } catch (error) {
+      console.error('Error triggering bulk analysis:', error);
     }
   };
 
@@ -263,17 +383,22 @@ export default function Prompts() {
       return;
     }
 
-    // Auto-trigger analysis for all new prompts
-    if (data) {
-      for (const prompt of data) {
-        triggerSinglePrompt(prompt.id);
-      }
-    }
-
     setShowModal(false);
     setBulkPromptText('');
     setIsBulkMode(false);
-    loadData();
+
+    // Reload data first to show the new prompts
+    await loadData();
+
+    // Auto-trigger analysis for all new prompts using bulk trigger
+    if (data && data.length > 0) {
+      console.log('Bulk upload: Triggering analysis for', data.length, 'prompts');
+      const promptIds = data.map(p => p.id);
+      await triggerBulkPrompts(promptIds);
+
+      // Reload again to show processing state
+      await loadData();
+    }
   };
 
   const handleBulkRun = async () => {
@@ -285,12 +410,15 @@ export default function Prompts() {
     const confirmed = confirm(`Run analysis for ${selectedPrompts.length} selected prompt(s)?`);
     if (!confirmed) return;
 
-    for (const promptId of selectedPrompts) {
-      await triggerSinglePrompt(promptId);
-    }
+    // Trigger all selected prompts using bulk trigger
+    await triggerBulkPrompts(selectedPrompts);
 
     setSelectedPrompts([]);
-    alert(`Triggered analysis for ${selectedPrompts.length} prompt(s)!`);
+
+    // Reload data to show processing state
+    await loadData();
+
+    alert(`Analysis started for ${selectedPrompts.length} prompt(s)!`);
   };
 
   const togglePromptSelection = (promptId: string) => {
@@ -540,7 +668,7 @@ export default function Prompts() {
 
                     const hasProcessing = (prompt.allExecutions || []).some((e: any) => e.status === 'processing');
                     const rowClass = hasProcessing
-                      ? "border-b border-slate-100 bg-blue-50 hover:bg-blue-100 transition-colors group animate-pulse"
+                      ? "border-b border-slate-100 bg-blue-50 hover:bg-blue-100 transition-colors group"
                       : "border-b border-slate-100 hover:bg-slate-50 transition-colors group";
 
                     return (
