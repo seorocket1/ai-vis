@@ -360,7 +360,20 @@ export default function Prompts() {
   const handleBulkUpload = async () => {
     if (!user || !bulkPromptText.trim()) return;
 
-    const lines = bulkPromptText.split('\n').filter(line => line.trim());
+    // Split by newlines and filter empty lines
+    const lines = bulkPromptText
+      .split(/\r?\n/)  // Handle both \n and \r\n
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+
+    console.log('[Bulk Upload] Input text:', bulkPromptText);
+    console.log('[Bulk Upload] Parsed lines:', lines);
+    console.log('[Bulk Upload] Number of prompts:', lines.length);
+
+    if (lines.length === 0) {
+      alert('Please enter at least one prompt');
+      return;
+    }
 
     if (promptLimit.current + lines.length > promptLimit.limit) {
       alert(`Cannot add ${lines.length} prompts. You have ${promptLimit.current}/${promptLimit.limit} prompts. ${promptLimit.limit === 5 ? 'Upgrade to Pro for 50 prompts!' : `You can only add ${promptLimit.limit - promptLimit.current} more.`}`);
