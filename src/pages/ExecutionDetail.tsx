@@ -112,12 +112,21 @@ export default function ExecutionDetail() {
   const brandMentions = aiData?.brandAndCompetitorMentions || {};
   const userBrand = profile?.brand_name || 'Your Brand';
 
+  console.log('Debug - aiData:', aiData);
+  console.log('Debug - brandMentions:', brandMentions);
+  console.log('Debug - userBrand:', userBrand);
+  console.log('Debug - brandMentions entries:', Object.entries(brandMentions));
+
   const userBrandCount = Object.entries(brandMentions).reduce((count, [name, mentions]) => {
-    if (name.toLowerCase().includes(userBrand.toLowerCase()) || userBrand.toLowerCase().includes(name.toLowerCase())) {
+    const matches = name.toLowerCase().includes(userBrand.toLowerCase()) || userBrand.toLowerCase().includes(name.toLowerCase());
+    console.log(`Debug - Checking "${name}" against "${userBrand}": ${matches}, count: ${mentions}`);
+    if (matches) {
       return count + (mentions as number);
     }
     return count;
   }, 0);
+
+  console.log('Debug - Final userBrandCount:', userBrandCount);
 
   const competitors = Object.entries(brandMentions).filter(([name]) => {
     return !name.toLowerCase().includes(userBrand.toLowerCase()) && !userBrand.toLowerCase().includes(name.toLowerCase());
