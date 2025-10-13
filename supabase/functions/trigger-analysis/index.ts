@@ -24,23 +24,17 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     console.log('Received request body:', body);
 
-    // Handle two types of requests:
-    // 1. From TriggerPrompt page: { Model, Prompt, Brand, executionId }
-    // 2. From Onboarding: { promptId }
-
     let Model = body.Model;
     let Prompt = body.Prompt;
     let Brand = body.Brand;
     let executionId = body.executionId;
 
-    // If promptId is provided, fetch the prompt and create executions for all platforms
     if (body.promptId && !Model) {
       const promptId = body.promptId;
 
-      // Fetch the prompt details
       const { data: promptData, error: promptError } = await supabase
         .from('prompts')
-        .select('*, profiles!inner(brand_name)')
+        .select('*')
         .eq('id', promptId)
         .single();
 
@@ -48,10 +42,19 @@ Deno.serve(async (req: Request) => {
         throw new Error(`Failed to fetch prompt: ${promptError?.message || 'Prompt not found'}`);
       }
 
-      Prompt = promptData.text;
-      Brand = promptData.profiles.brand_name;
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('brand_name')
+        .eq('id', promptData.user_id)
+        .single();
 
-      // Get all platforms
+      if (profileError || !profileData) {
+        throw new Error(`Failed to fetch profile: ${profileError?.message || 'Profile not found'}`);
+      }
+
+      Prompt = promptData.text;
+      Brand = profileData.brand_name;
+
       const platforms = [
         { id: 'chatgpt', name: 'ChatGPT', displayName: 'ChatGPT' },
         { id: 'gemini', name: 'Gemini', displayName: 'Gemini' },
@@ -59,9 +62,7 @@ Deno.serve(async (req: Request) => {
         { id: 'aio', name: 'AI Overview', displayName: 'AI Overview' }
       ];
 
-      // Create executions for all platforms and trigger them
       const promises = platforms.map(async (platform) => {
-        // Create execution record
         const { data: execution, error: execError } = await supabase
           .from('prompt_executions')
           .insert({
@@ -79,7 +80,6 @@ Deno.serve(async (req: Request) => {
           return null;
         }
 
-        // Trigger n8n webhook for this platform
         try {
           const n8nWebhookUrl = 'https://n8n.seoengine.agency/webhook/84366642-2502-4684-baac-18e950410124';
 
@@ -101,7 +101,6 @@ Deno.serve(async (req: Request) => {
             const responseText = await webhookResponse.text();
             console.error(`n8n webhook failed for ${platform.name}:`, responseText);
 
-            // Update execution status to failed
             await supabase
               .from('prompt_executions')
               .update({
@@ -119,7 +118,6 @@ Deno.serve(async (req: Request) => {
         } catch (error: any) {
           console.error(`Error triggering ${platform.name}:`, error);
 
-          // Update execution status to failed
           await supabase
             .from('prompt_executions')
             .update({
@@ -152,7 +150,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Original flow for direct trigger
     console.log('Processing direct trigger:', { Model, Prompt, Brand, executionId });
 
     const n8nWebhookUrl = 'https://n8n.seoengine.agency/webhook/84366642-2502-4684-baac-18e950410124';
@@ -182,7 +179,6 @@ Deno.serve(async (req: Request) => {
     const n8nData = await webhookResponse.json();
     console.log('n8n response data:', JSON.stringify(n8nData));
 
-    // Update execution status to completed
     const { error: execError } = await supabase
       .from('prompt_executions')
       .update({
@@ -197,7 +193,6 @@ Deno.serve(async (req: Request) => {
       throw execError;
     }
 
-    // Insert brand mentions
     if (n8nData.brandAndCompetitorMentions) {
       const mentions = Object.entries(n8nData.brandAndCompetitorMentions).map(([brand, count]) => ({
         execution_id: executionId,
@@ -217,7 +212,6 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Parse and insert sentiment analysis
     if (n8nData.overallSentiment) {
       const sentiment = n8nData.overallSentiment;
       const parsePercent = (val: string) => {
@@ -254,7 +248,6 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Insert recommendations
     if (n8nData.recommendations && Array.isArray(n8nData.recommendations)) {
       const recs = n8nData.recommendations.map((rec: any, index: number) => ({
         execution_id: executionId,
