@@ -147,7 +147,7 @@ export default function Prompts() {
     setShowModal(false);
     setNewPromptText('');
     setNewPromptFrequency('weekly');
-    setNewPromptPlatform('all');
+    setNewPromptPlatform('gemini');
     setEditingPrompt(null);
     loadData();
   };
@@ -287,7 +287,14 @@ export default function Prompts() {
       // Create execution records for all prompts
       const executionsToCreate = prompts.map(prompt => {
         const platform = prompt.platform || 'gemini';
-        const modelName = platform === 'gemini' ? 'Gemini' : platform === 'perplexity' ? 'Perplexity' : 'ChatGPT';
+        console.log('[triggerBulkPrompts] Prompt platform:', prompt.platform, '-> resolved:', platform);
+        let modelName = 'Gemini';
+        if (platform === 'gemini') modelName = 'Gemini';
+        else if (platform === 'perplexity') modelName = 'Perplexity';
+        else if (platform === 'chatgpt') modelName = 'ChatGPT';
+        else if (platform === 'ai-overview') modelName = 'AI Overview';
+        else modelName = 'Gemini'; // default fallback
+        console.log('[triggerBulkPrompts] Platform:', platform, '-> Model:', modelName);
         return {
           prompt_id: prompt.id,
           user_id: user.id,
@@ -321,7 +328,14 @@ export default function Prompts() {
 
       prompts.forEach((prompt, index) => {
         const platform = prompt.platform || 'gemini';
-        const modelName = platform === 'gemini' ? 'Gemini' : platform === 'perplexity' ? 'Perplexity' : 'ChatGPT';
+        console.log('[triggerBulkPrompts] Grouping - Prompt:', prompt.text?.substring(0, 30), 'Platform:', prompt.platform, '-> resolved:', platform);
+        let modelName = 'Gemini';
+        if (platform === 'gemini') modelName = 'Gemini';
+        else if (platform === 'perplexity') modelName = 'Perplexity';
+        else if (platform === 'chatgpt') modelName = 'ChatGPT';
+        else if (platform === 'ai-overview') modelName = 'AI Overview';
+        else modelName = 'Gemini'; // default fallback
+        console.log('[triggerBulkPrompts] Grouping - Platform:', platform, '-> Model:', modelName);
 
         if (!promptsByModel[modelName]) {
           promptsByModel[modelName] = [];
@@ -332,6 +346,8 @@ export default function Prompts() {
           executionId: executions[index]?.id,
         });
       });
+
+      console.log('[triggerBulkPrompts] Final groups:', Object.keys(promptsByModel));
 
       // Call n8n webhook with bulk format for each model
       const n8nWebhookUrl = 'https://n8n.seoengine.agency/webhook/84366642-2502-4684-baac-18e950410124';
@@ -501,7 +517,7 @@ export default function Prompts() {
                   setEditingPrompt(null);
                   setNewPromptText('');
                   setNewPromptFrequency('weekly');
-                  setNewPromptPlatform('all');
+                  setNewPromptPlatform('gemini');
                   setIsBulkMode(true);
                   setBulkPromptText('');
                   setShowModal(true);
@@ -525,7 +541,7 @@ export default function Prompts() {
                   setEditingPrompt(null);
                   setNewPromptText('');
                   setNewPromptFrequency('weekly');
-                  setNewPromptPlatform('all');
+                  setNewPromptPlatform('gemini');
                   setIsBulkMode(false);
                   setShowModal(true);
                 }}
