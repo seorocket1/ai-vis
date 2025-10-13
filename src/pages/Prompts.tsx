@@ -44,7 +44,7 @@ export default function Prompts() {
   // Poll for updates when there are processing executions
   useEffect(() => {
     const hasProcessing = prompts.some(p =>
-      (p.prompt_executions as any[])?.some((e: any) => e.status === 'processing')
+      (p.allExecutions as any[])?.some((e: any) => e.status === 'processing')
     );
 
     if (!hasProcessing) return;
@@ -285,13 +285,17 @@ export default function Prompts() {
       }
 
       // Create execution records for all prompts
-      const executionsToCreate = prompts.map(prompt => ({
-        prompt_id: prompt.id,
-        user_id: user.id,
-        model: 'Gemini',
-        platform: prompt.platform || 'gemini',
-        status: 'processing',
-      }));
+      const executionsToCreate = prompts.map(prompt => {
+        const platform = prompt.platform || 'gemini';
+        const modelName = platform === 'gemini' ? 'Gemini' : platform === 'perplexity' ? 'Perplexity' : 'ChatGPT';
+        return {
+          prompt_id: prompt.id,
+          user_id: user.id,
+          model: modelName,
+          platform: platform,
+          status: 'processing',
+        };
+      });
 
       const { data: executions } = await supabase
         .from('prompt_executions')
@@ -312,37 +316,53 @@ export default function Prompts() {
       // Refresh UI
       loadData();
 
-      // Prepare prompts array for n8n with executionIds
-      const promptsArray = prompts.map((prompt, index) => ({
-        text: prompt.text,
-        executionId: executions[index]?.id,
-      }));
+      // Group prompts by platform/model
+      const promptsByModel: { [key: string]: any[] } = {};
 
-      // Call n8n webhook with bulk format
+      prompts.forEach((prompt, index) => {
+        const platform = prompt.platform || 'gemini';
+        const modelName = platform === 'gemini' ? 'Gemini' : platform === 'perplexity' ? 'Perplexity' : 'ChatGPT';
+
+        if (!promptsByModel[modelName]) {
+          promptsByModel[modelName] = [];
+        }
+
+        promptsByModel[modelName].push({
+          text: prompt.text,
+          executionId: executions[index]?.id,
+        });
+      });
+
+      // Call n8n webhook with bulk format for each model
       const n8nWebhookUrl = 'https://n8n.seoengine.agency/webhook/84366642-2502-4684-baac-18e950410124';
 
       try {
-        const response = await fetch(n8nWebhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            Model: 'Gemini',
-            Brand: profile.brand_name,
-            Prompts: promptsArray,
-          }),
-        });
+        // Send separate requests for each model
+        const promises = Object.entries(promptsByModel).map(([modelName, promptsArray]) =>
+          fetch(n8nWebhookUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              Model: modelName,
+              Brand: profile.brand_name,
+              Prompts: promptsArray,
+            }),
+          })
+        );
 
-        if (!response.ok) {
-          console.error('Bulk n8n webhook failed:', response.status);
-          // Mark all executions as failed
-          await supabase
-            .from('prompt_executions')
-            .update({ status: 'failed' })
-            .in('id', executions.map(e => e.id));
+        const responses = await Promise.all(promises);
+        const allSuccessful = responses.every(r => r.ok);
+
+        if (!allSuccessful) {
+          console.error('Some bulk n8n webhook calls failed');
+          // Mark failed executions
+          const failedResponses = responses.filter(r => !r.ok);
+          console.error('Failed responses:', failedResponses.length);
+
         } else {
-          console.log('Bulk analysis triggered for', prompts.length, 'prompts');
+          console.log('Bulk analysis triggered for', prompts.length, 'prompts across', Object.keys(promptsByModel).length, 'models');
         }
       } catch (webhookError) {
         console.error('Error calling bulk n8n webhook:', webhookError);
