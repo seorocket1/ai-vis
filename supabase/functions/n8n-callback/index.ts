@@ -297,8 +297,34 @@ Deno.serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const payload = await req.json();
     console.log('[n8n-callback] ========== NEW REQUEST ==========');
+    console.log('[n8n-callback] Request method:', req.method);
+    console.log('[n8n-callback] Request headers:', JSON.stringify(Object.fromEntries(req.headers.entries())));
+
+    const rawBody = await req.text();
+    console.log('[n8n-callback] Raw body:', rawBody);
+    console.log('[n8n-callback] Raw body length:', rawBody.length);
+
+    if (!rawBody || rawBody.trim() === '') {
+      console.error('[n8n-callback] ERROR: Empty request body');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Empty request body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    let payload;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch (parseError: any) {
+      console.error('[n8n-callback] ERROR: Failed to parse JSON:', parseError.message);
+      console.error('[n8n-callback] Raw body that failed to parse:', rawBody);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid JSON: ' + parseError.message }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     console.log('[n8n-callback] Full payload received:', JSON.stringify(payload, null, 2));
 
     // Check if this is a batch response (array of results) or single result
