@@ -71,6 +71,14 @@ export default function Prompts() {
       const executions = prompt.prompt_executions || [];
       const completedExecs = executions.filter((e: any) => e.status === 'completed');
       const latestExecution = completedExecs.length > 0 ? completedExecs[completedExecs.length - 1] : null;
+
+      // Debug logging for execution status
+      if (executions.length > 0) {
+        console.log(`[loadData] Prompt "${prompt.text?.substring(0, 30)}" has ${executions.length} executions:`,
+          executions.map((e: any) => ({ id: e.id, status: e.status, has_response: !!e.ai_response }))
+        );
+      }
+
       return {
         ...prompt,
         latestExecution,
