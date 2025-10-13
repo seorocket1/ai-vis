@@ -110,23 +110,16 @@ export default function ExecutionDetail() {
   const currentExec = getCurrentExecution();
   const aiData = parseAIResponse(currentExec);
   const brandMentions = aiData?.brandAndCompetitorMentions || {};
-  const userBrand = profile?.brand_name || 'Your Brand';
-
-  console.log('Debug - aiData:', aiData);
-  console.log('Debug - brandMentions:', brandMentions);
-  console.log('Debug - userBrand:', userBrand);
-  console.log('Debug - brandMentions entries:', Object.entries(brandMentions));
+  const userBrand = profile?.brand_name || '';
 
   const userBrandCount = Object.entries(brandMentions).reduce((count, [name, mentions]) => {
+    if (!userBrand) return count;
     const matches = name.toLowerCase().includes(userBrand.toLowerCase()) || userBrand.toLowerCase().includes(name.toLowerCase());
-    console.log(`Debug - Checking "${name}" against "${userBrand}": ${matches}, count: ${mentions}`);
     if (matches) {
       return count + (mentions as number);
     }
     return count;
   }, 0);
-
-  console.log('Debug - Final userBrandCount:', userBrandCount);
 
   const competitors = Object.entries(brandMentions).filter(([name]) => {
     return !name.toLowerCase().includes(userBrand.toLowerCase()) && !userBrand.toLowerCase().includes(name.toLowerCase());
@@ -171,9 +164,9 @@ export default function ExecutionDetail() {
 
           {allExecutions.length > 0 && (
             <div className="flex gap-2 flex-wrap mb-6">
-              {Array.from(new Set(allExecutions.map(e => e.platform))).map((platform) => {
-                const exec = allExecutions.find(e => e.platform === platform && e.status === 'completed') || allExecutions.find(e => e.platform === platform);
-                if (!exec) return null;
+              {Array.from(new Set(allExecutions.map(e => e.platform || 'gemini').filter(Boolean))).map((platform) => {
+                const exec = allExecutions.find(e => (e.platform || 'gemini') === platform && e.status === 'completed') || allExecutions.find(e => (e.platform || 'gemini') === platform);
+                if (!exec || !platform) return null;
                 const color = platformColors[platform] || 'slate';
                 const isActive = activeTab === exec.id;
                 return (
@@ -187,7 +180,7 @@ export default function ExecutionDetail() {
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <span>{platformDisplayNames[platform] || exec.model}</span>
+                      <span>{platformDisplayNames[platform] || exec.model || 'AI'}</span>
                       {exec.status === 'completed' && <CheckCircle className="w-4 h-4" />}
                       {exec.status === 'processing' && <Clock className="w-4 h-4 animate-spin" />}
                       {exec.status === 'failed' && <AlertCircle className="w-4 h-4" />}
@@ -215,7 +208,7 @@ export default function ExecutionDetail() {
             </span>
             <p className="text-sm text-slate-500">
               Analyzed on {new Date(currentExec?.executed_at).toLocaleString()} using{' '}
-              <span className="font-semibold">{platformDisplayNames[currentExec?.platform] || currentExec?.platform || currentExec?.model}</span>
+              <span className="font-semibold">{platformDisplayNames[currentExec?.platform || 'gemini'] || currentExec?.platform || currentExec?.model || 'AI'}</span>
             </p>
           </div>
         </div>
@@ -237,7 +230,17 @@ export default function ExecutionDetail() {
             {/* Brand Mention Status */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
               <h2 className="text-xl font-bold text-slate-900 mb-4">Your Brand Status</h2>
-              {userBrandCount === 0 ? (
+              {!userBrand ? (
+                <div className="flex items-center gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <AlertCircle className="w-6 h-6 text-yellow-600 flex-shrink-0" />
+                  <div>
+                    <p className="font-semibold text-yellow-900">Brand Name Not Set</p>
+                    <p className="text-sm text-yellow-700">
+                      Please set your brand name in <a href="/settings" className="underline font-semibold">Settings</a> to track brand mentions accurately.
+                    </p>
+                  </div>
+                </div>
+              ) : userBrandCount === 0 ? (
                 <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
                   <AlertTriangle className="w-6 h-6 text-red-600 flex-shrink-0" />
                   <div>
@@ -253,7 +256,7 @@ export default function ExecutionDetail() {
                   <div>
                     <p className="font-semibold text-green-900">Brand Mentioned!</p>
                     <p className="text-sm text-green-700">
-                      {userBrand} was mentioned <span className="font-bold">{userBrandCount > 0 ? userBrandCount : '0'}</span> time{userBrandCount !== 1 ? 's' : ''} in the AI response.
+                      {userBrand} was mentioned <span className="font-bold">{userBrandCount}</span> time{userBrandCount !== 1 ? 's' : ''} in the AI response.
                     </p>
                   </div>
                 </div>
