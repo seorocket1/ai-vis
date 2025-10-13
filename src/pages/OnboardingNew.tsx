@@ -30,14 +30,31 @@ export default function OnboardingNew() {
   ];
 
   const generatePrompts = async () => {
+    if (!user) return;
+
     setGeneratingPrompts(true);
     setError('');
 
     try {
-      // For now, generate template-based prompts
-      // In production, this would call the edge function
+      // Check how many prompts the user already has
+      const { count: existingPromptCount } = await supabase
+        .from('prompts')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      const currentPrompts = existingPromptCount || 0;
+      const maxPrompts = 5; // Free plan limit
+      const availableSlots = Math.max(0, maxPrompts - currentPrompts);
+
+      if (availableSlots === 0) {
+        setError(`You've already created ${maxPrompts} prompts. Please delete some prompts or upgrade to Pro for 50 prompts.`);
+        setGeneratingPrompts(false);
+        return;
+      }
+
+      // Generate template-based prompts
       const industry = extractIndustry(website);
-      const prompts = [
+      const allPrompts = [
         `What are the best ${industry} services in ${location}?`,
         `${brandName} vs competitors: which is better?`,
         `How does ${brandName} compare to other ${industry} providers?`,
@@ -45,6 +62,8 @@ export default function OnboardingNew() {
         `${brandName} review: is it worth it in ${new Date().getFullYear()}?`,
       ];
 
+      // Only show prompts up to available slots
+      const prompts = allPrompts.slice(0, availableSlots);
       setSuggestedPrompts(prompts);
 
       // Pre-select all prompts
@@ -54,9 +73,14 @@ export default function OnboardingNew() {
       });
       setSelectedPrompts(selected);
 
+      if (availableSlots < 5) {
+        setError(`Note: You can only add ${availableSlots} more prompt${availableSlots !== 1 ? 's' : ''} on the free plan. Upgrade to Pro for 50 prompts!`);
+      }
+
       setGeneratingPrompts(false);
       setStep(2);
     } catch (err) {
+      console.error('Generate prompts error:', err);
       setError('Failed to generate prompts');
       setGeneratingPrompts(false);
     }
@@ -144,7 +168,16 @@ export default function OnboardingNew() {
         .insert(promptsToInsert)
         .select();
 
-      if (promptError) throw promptError;
+      if (promptError) {
+        console.error('Prompt insertion error:', promptError);
+        if (promptError.message?.includes('Prompt limit exceeded')) {
+          setError('You\'ve reached your prompt limit. Please delete some existing prompts or upgrade to Pro for 50 prompts.');
+        } else {
+          setError(`Failed to save prompts: ${promptError.message}`);
+        }
+        setLoading(false);
+        return;
+      }
 
       setLoading(false);
       setStep(3);
