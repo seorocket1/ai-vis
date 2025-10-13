@@ -16,6 +16,10 @@ import Admin from './pages/Admin';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import Security from './pages/Security';
+import GeminiAnalytics from './pages/GeminiAnalytics';
+import ChatGPTAnalytics from './pages/ChatGPTAnalytics';
+import PerplexityAnalytics from './pages/PerplexityAnalytics';
+import AIOverviewAnalytics from './pages/AIOverviewAnalytics';
 import ProtectedRoute from './components/ProtectedRoute';
 
 export default function Router() {
@@ -143,6 +147,38 @@ export default function Router() {
     return (
       <ProtectedRoute>
         <Admin />
+      </ProtectedRoute>
+    );
+  }
+
+  if (currentPath === '/platforms/gemini') {
+    return (
+      <ProtectedRoute>
+        <GeminiAnalytics />
+      </ProtectedRoute>
+    );
+  }
+
+  if (currentPath === '/platforms/chatgpt') {
+    return (
+      <ProtectedRoute>
+        <ChatGPTAnalytics />
+      </ProtectedRoute>
+    );
+  }
+
+  if (currentPath === '/platforms/perplexity') {
+    return (
+      <ProtectedRoute>
+        <PerplexityAnalytics />
+      </ProtectedRoute>
+    );
+  }
+
+  if (currentPath === '/platforms/ai-overview') {
+    return (
+      <ProtectedRoute>
+        <AIOverviewAnalytics />
       </ProtectedRoute>
     );
   }

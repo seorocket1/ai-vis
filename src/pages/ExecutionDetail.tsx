@@ -132,17 +132,15 @@ export default function ExecutionDetail() {
   const platformDisplayNames: Record<string, string> = {
     gemini: 'Gemini',
     chatgpt: 'ChatGPT',
-    claude: 'Claude',
     perplexity: 'Perplexity',
-    grok: 'Grok',
+    'ai-overview': 'AI Overview',
   };
 
   const platformColors: Record<string, string> = {
     gemini: 'emerald',
     chatgpt: 'green',
-    claude: 'amber',
     perplexity: 'blue',
-    grok: 'slate',
+    'ai-overview': 'purple',
   };
 
   return (

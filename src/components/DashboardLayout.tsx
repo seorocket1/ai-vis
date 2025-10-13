@@ -12,6 +12,9 @@ import {
   BarChart3,
   Shield,
   Crown,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -22,6 +25,7 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children, currentPage }: DashboardLayoutProps) {
   const { user, isAdmin } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [platformsOpen, setPlatformsOpen] = useState(false);
   const [userPlan, setUserPlan] = useState<'free' | 'pro'>('free');
   const [queriesUsed, setQueriesUsed] = useState(0);
   const [queryLimit, setQueryLimit] = useState(5);
@@ -75,6 +79,13 @@ export default function DashboardLayout({ children, currentPage }: DashboardLayo
     { icon: Users, label: 'Competitors', href: '/competitors', id: 'competitors' },
     { icon: Users, label: 'Competitor Analysis', href: '/competitor-analysis', id: 'competitor-analysis' },
     { icon: Settings, label: 'Settings', href: '/settings', id: 'settings' },
+  ];
+
+  const platformMenuItems = [
+    { label: 'Google Gemini', href: '/platforms/gemini', id: 'platform-gemini', color: 'emerald' },
+    { label: 'ChatGPT', href: '/platforms/chatgpt', id: 'platform-chatgpt', color: 'green' },
+    { label: 'Perplexity AI', href: '/platforms/perplexity', id: 'platform-perplexity', color: 'blue' },
+    { label: 'AI Overview', href: '/platforms/ai-overview', id: 'platform-ai-overview', color: 'purple' },
   ];
 
   const adminMenuItem = { icon: Shield, label: 'Admin', href: '/admin', id: 'admin' };
@@ -132,6 +143,49 @@ export default function DashboardLayout({ children, currentPage }: DashboardLayo
                 </a>
               );
             })}
+
+            {/* AI Platforms Dropdown */}
+            <div>
+              <button
+                onClick={() => setPlatformsOpen(!platformsOpen)}
+                className={`flex items-center justify-between gap-3 px-4 py-3 rounded-lg transition-all w-full ${
+                  currentPage === 'ai-platforms'
+                    ? 'bg-purple-50 text-purple-600 font-medium'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Sparkles className="w-5 h-5" />
+                  <span>AI Platforms</span>
+                </div>
+                {platformsOpen ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+              </button>
+
+              {platformsOpen && (
+                <div className="ml-4 mt-1 space-y-1 border-l-2 border-slate-200 pl-4">
+                  {platformMenuItems.map((platform) => {
+                    const isActive = currentPage === platform.id;
+                    return (
+                      <a
+                        key={platform.id}
+                        href={platform.href}
+                        className={`block px-4 py-2 text-sm rounded-lg transition-all ${
+                          isActive
+                            ? `bg-${platform.color}-50 text-${platform.color}-600 font-medium`
+                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                        }`}
+                      >
+                        {platform.label}
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </nav>
         </div>
 

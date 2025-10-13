@@ -17,9 +17,8 @@ interface Platform {
 const platforms: Platform[] = [
   { id: 'gemini', name: 'Gemini', displayName: 'Google Gemini', icon: 'G', color: 'emerald', description: 'Google\'s most capable AI model' },
   { id: 'chatgpt', name: 'ChatGPT', displayName: 'ChatGPT (GPT-4)', icon: 'C', color: 'green', description: 'OpenAI\'s most advanced model' },
-  { id: 'claude', name: 'Claude', displayName: 'Claude 3.5 Sonnet', icon: 'A', color: 'amber', description: 'Anthropic\'s powerful AI assistant' },
   { id: 'perplexity', name: 'Perplexity', displayName: 'Perplexity AI', icon: 'P', color: 'blue', description: 'AI-powered answer engine' },
-  { id: 'grok', name: 'Grok', displayName: 'Grok (xAI)', icon: 'X', color: 'slate', description: 'xAI\'s conversational AI' },
+  { id: 'ai-overview', name: 'AI Overview', displayName: 'AI Overview', icon: 'A', color: 'purple', description: 'Google\'s AI Overview' },
 ];
 
 export default function TriggerPrompt() {
