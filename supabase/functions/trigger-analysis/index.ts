@@ -21,9 +21,139 @@ Deno.serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { Model, Prompt, Brand, executionId } = await req.json();
+    const body = await req.json();
+    console.log('Received request body:', body);
 
-    console.log('Received request:', { Model, Prompt, Brand, executionId });
+    // Handle two types of requests:
+    // 1. From TriggerPrompt page: { Model, Prompt, Brand, executionId }
+    // 2. From Onboarding: { promptId }
+
+    let Model = body.Model;
+    let Prompt = body.Prompt;
+    let Brand = body.Brand;
+    let executionId = body.executionId;
+
+    // If promptId is provided, fetch the prompt and create executions for all platforms
+    if (body.promptId && !Model) {
+      const promptId = body.promptId;
+
+      // Fetch the prompt details
+      const { data: promptData, error: promptError } = await supabase
+        .from('prompts')
+        .select('*, profiles!inner(brand_name)')
+        .eq('id', promptId)
+        .single();
+
+      if (promptError || !promptData) {
+        throw new Error(`Failed to fetch prompt: ${promptError?.message || 'Prompt not found'}`);
+      }
+
+      Prompt = promptData.text;
+      Brand = promptData.profiles.brand_name;
+
+      // Get all platforms
+      const platforms = [
+        { id: 'chatgpt', name: 'ChatGPT', displayName: 'ChatGPT' },
+        { id: 'gemini', name: 'Gemini', displayName: 'Gemini' },
+        { id: 'perplexity', name: 'Perplexity', displayName: 'Perplexity' },
+        { id: 'aio', name: 'AI Overview', displayName: 'AI Overview' }
+      ];
+
+      // Create executions for all platforms and trigger them
+      const promises = platforms.map(async (platform) => {
+        // Create execution record
+        const { data: execution, error: execError } = await supabase
+          .from('prompt_executions')
+          .insert({
+            prompt_id: promptId,
+            user_id: promptData.user_id,
+            model: platform.name,
+            platform: platform.id,
+            status: 'processing',
+          })
+          .select()
+          .single();
+
+        if (execError || !execution) {
+          console.error(`Failed to create execution for ${platform.name}:`, execError);
+          return null;
+        }
+
+        // Trigger n8n webhook for this platform
+        try {
+          const n8nWebhookUrl = 'https://n8n.seoengine.agency/webhook/84366642-2502-4684-baac-18e950410124';
+
+          const webhookResponse = await fetch(n8nWebhookUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              Model: platform.name,
+              Platform: platform.id,
+              Prompt: Prompt,
+              Brand: Brand,
+              executionId: execution.id,
+            }),
+          });
+
+          if (!webhookResponse.ok) {
+            const responseText = await webhookResponse.text();
+            console.error(`n8n webhook failed for ${platform.name}:`, responseText);
+
+            // Update execution status to failed
+            await supabase
+              .from('prompt_executions')
+              .update({
+                status: 'failed',
+                completed_at: new Date().toISOString(),
+                error_message: `Webhook failed: ${webhookResponse.status}`,
+              })
+              .eq('id', execution.id);
+
+            return null;
+          }
+
+          console.log(`Successfully triggered analysis for ${platform.name}`);
+          return execution.id;
+        } catch (error: any) {
+          console.error(`Error triggering ${platform.name}:`, error);
+
+          // Update execution status to failed
+          await supabase
+            .from('prompt_executions')
+            .update({
+              status: 'failed',
+              completed_at: new Date().toISOString(),
+              error_message: error.message,
+            })
+            .eq('id', execution.id);
+
+          return null;
+        }
+      });
+
+      const results = await Promise.all(promises);
+      const successCount = results.filter(r => r !== null).length;
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Analysis triggered for ${successCount} platforms`,
+          executionIds: results.filter(r => r !== null),
+        }),
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
+
+    // Original flow for direct trigger
+    console.log('Processing direct trigger:', { Model, Prompt, Brand, executionId });
 
     const n8nWebhookUrl = 'https://n8n.seoengine.agency/webhook/84366642-2502-4684-baac-18e950410124';
 
