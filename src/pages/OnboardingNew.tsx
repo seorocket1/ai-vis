@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { supabaseUrl, supabaseAnonKey } from '../lib/config';
 import { Globe, Sparkles, Play, Check, Loader, MapPin } from 'lucide-react';
 
 export default function OnboardingNew() {
@@ -189,10 +190,10 @@ export default function OnboardingNew() {
       if (insertedPrompts) {
         for (const prompt of insertedPrompts) {
           try {
-            await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/trigger-analysis`, {
+            await fetch(`${supabaseUrl}/functions/v1/trigger-analysis`, {
               method: 'POST',
               headers: {
-                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                'Authorization': `Bearer ${supabaseAnonKey}`,
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({ promptId: prompt.id }),
