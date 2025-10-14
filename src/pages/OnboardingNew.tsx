@@ -180,34 +180,25 @@ export default function OnboardingNew() {
         return;
       }
 
-      setLoading(false);
-      setStep(3);
-
-      // Trigger analysis for all prompts
-      setRunningAnalysis(true);
-      setAnalysisStarted(true);
-
+      // Trigger analysis in background (don't wait for it)
       if (insertedPrompts) {
-        for (const prompt of insertedPrompts) {
-          try {
-            await fetch(`${supabaseUrl}/functions/v1/trigger-analysis`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${supabaseAnonKey}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ promptId: prompt.id }),
-            });
-          } catch (e) {
+        insertedPrompts.forEach(prompt => {
+          fetch(`${supabaseUrl}/functions/v1/trigger-analysis`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${supabaseAnonKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ promptId: prompt.id }),
+          }).catch(e => {
             console.error('Failed to trigger analysis:', e);
-          }
-        }
+          });
+        });
       }
 
-      // Wait a moment then redirect
-      setTimeout(() => {
-        window.location.href = '/dashboard';
-      }, 3000);
+      // Redirect immediately to dashboard
+      setLoading(false);
+      window.location.href = '/dashboard';
     } catch (err) {
       console.error('Onboarding error:', err);
       setError('Failed to complete setup. Please try again.');
@@ -221,9 +212,9 @@ export default function OnboardingNew() {
         <div className="bg-white rounded-2xl shadow-2xl p-8 md:p-12">
           {/* Progress Steps */}
           <div className="mb-10">
-            <div className="flex items-center justify-between max-w-md mx-auto">
-              {[1, 2, 3].map((s) => (
-                <div key={s} className="flex items-center flex-1">
+            <div className="flex items-center justify-center gap-4 max-w-md mx-auto">
+              {[1, 2].map((s) => (
+                <div key={s} className="flex items-center">
                   <div className="relative">
                     <div
                       className={`w-12 h-12 rounded-full flex items-center justify-center font-semibold transition-all ${
@@ -234,21 +225,20 @@ export default function OnboardingNew() {
                     >
                       {step > s ? <Check className="w-6 h-6" /> : s}
                     </div>
-                    {s < 3 && (
-                      <div
-                        className={`absolute top-6 left-12 w-20 h-1 transition-all ${
-                          step > s ? 'bg-blue-600' : 'bg-slate-200'
-                        }`}
-                      />
-                    )}
                   </div>
+                  {s < 2 && (
+                    <div
+                      className={`w-32 h-1 mx-4 transition-all ${
+                        step > s ? 'bg-blue-600' : 'bg-slate-200'
+                      }`}
+                    />
+                  )}
                 </div>
               ))}
             </div>
-            <div className="flex justify-between max-w-md mx-auto mt-3 text-xs font-medium">
+            <div className="flex justify-center gap-40 max-w-md mx-auto mt-3 text-xs font-medium">
               <span className={step >= 1 ? 'text-blue-600' : 'text-slate-500'}>Brand Info</span>
               <span className={step >= 2 ? 'text-blue-600' : 'text-slate-500'}>Review Prompts</span>
-              <span className={step >= 3 ? 'text-blue-600' : 'text-slate-500'}>Analysis</span>
             </div>
           </div>
 
@@ -415,44 +405,6 @@ export default function OnboardingNew() {
             </div>
           )}
 
-          {/* Step 3: Running Analysis */}
-          {step === 3 && (
-            <div className="space-y-8 text-center animate-fade-in py-8">
-              <div className="inline-block p-6 bg-gradient-to-br from-blue-100 to-emerald-100 rounded-3xl mb-4">
-                <div className="w-20 h-20 relative">
-                  <Loader className="w-20 h-20 text-blue-600 animate-spin" />
-                  <Play className="w-8 h-8 text-emerald-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
-                </div>
-              </div>
-              <h2 className="text-4xl font-bold text-slate-900 mb-4">
-                Running your first analysis
-              </h2>
-              <p className="text-slate-600 text-xl max-w-2xl mx-auto mb-8">
-                We're analyzing your brand visibility across AI platforms. This usually takes a few moments...
-              </p>
-
-              <div className="max-w-md mx-auto">
-                <div className="space-y-4 text-left">
-                  <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <Check className="w-5 h-5 text-green-600 flex-shrink-0" />
-                    <span className="text-green-800 font-medium">Prompts created successfully</span>
-                  </div>
-                  <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <Loader className="w-5 h-5 text-blue-600 animate-spin flex-shrink-0" />
-                    <span className="text-blue-800 font-medium">Running brand analysis...</span>
-                  </div>
-                  <div className="flex items-center gap-3 p-4 bg-slate-100 border border-slate-200 rounded-lg opacity-50">
-                    <div className="w-5 h-5 border-2 border-slate-400 rounded-full flex-shrink-0"></div>
-                    <span className="text-slate-600">Entering dashboard</span>
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-sm text-slate-500 mt-8">
-                Redirecting to dashboard...
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>

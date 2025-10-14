@@ -56,10 +56,7 @@ Deno.serve(async (req: Request) => {
       Brand = profileData.brand_name;
 
       const platforms = [
-        { id: 'chatgpt', name: 'ChatGPT', displayName: 'ChatGPT' },
-        { id: 'gemini', name: 'Gemini', displayName: 'Gemini' },
-        { id: 'perplexity', name: 'Perplexity', displayName: 'Perplexity' },
-        { id: 'aio', name: 'AI Overview', displayName: 'AI Overview' }
+        { id: 'gemini', name: 'Gemini', displayName: 'Gemini' }
       ];
 
       const promises = platforms.map(async (platform) => {
