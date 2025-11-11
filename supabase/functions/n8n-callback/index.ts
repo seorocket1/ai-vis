@@ -8,7 +8,58 @@ const corsHeaders = {
 };
 
 async function processSingleResult(supabase: any, payload: any) {
-  const { executionId, brandAndCompetitorMentions, sentiment, recommendations, AI_original_response, overallSentiment } = payload;
+  // Handle new N8N format with capitalized fields
+  let executionId = payload.executionId;
+  let brandAndCompetitorMentions = payload.brandAndCompetitorMentions;
+  let sentiment = payload.sentiment;
+  let recommendations = payload.recommendations;
+  let AI_original_response = payload.AI_original_response;
+  let overallSentiment = payload.overallSentiment;
+  let sources = payload.sources;
+
+  // NEW FORMAT: Parse AI_Analysis if it exists
+  if (payload.AI_Analysis) {
+    console.log('[processSingleResult] Detected new N8N format with AI_Analysis');
+    try {
+      // AI_Analysis contains multiple JSON blocks as a string
+      const analysisText = payload.AI_Analysis;
+
+      // Extract JSON blocks using regex
+      const jsonBlocks = analysisText.match(/```json\n([\s\S]*?)\n```/g);
+
+      if (jsonBlocks && jsonBlocks.length >= 3) {
+        // First block: brand mentions
+        const brandMentionsJson = jsonBlocks[0].replace(/```json\n|\n```/g, '');
+        brandAndCompetitorMentions = JSON.parse(brandMentionsJson);
+
+        // Second block: sentiment
+        const sentimentJson = jsonBlocks[1].replace(/```json\n|\n```/g, '');
+        sentiment = JSON.parse(sentimentJson);
+
+        // Third block: recommendations
+        const recsJson = jsonBlocks[2].replace(/```json\n|\n```/g, '');
+        const recsObj = JSON.parse(recsJson);
+        recommendations = Object.values(recsObj);
+      }
+    } catch (parseError) {
+      console.error('[processSingleResult] Error parsing AI_Analysis:', parseError);
+    }
+  }
+
+  // NEW FORMAT: Use AI_Response if AI_original_response is not present
+  if (!AI_original_response && payload.AI_Response) {
+    AI_original_response = payload.AI_Response;
+  }
+
+  // NEW FORMAT: Parse Sources if it's a JSON string
+  if (payload.Sources) {
+    try {
+      sources = typeof payload.Sources === 'string' ? JSON.parse(payload.Sources) : payload.Sources;
+    } catch (e) {
+      console.error('[processSingleResult] Error parsing Sources:', e);
+      sources = payload.Sources;
+    }
+  }
 
   console.log('[processSingleResult] Processing execution:', executionId);
 
@@ -33,13 +84,20 @@ async function processSingleResult(supabase: any, payload: any) {
   const userId = execution.user_id;
 
   console.log('[processSingleResult] Updating execution status to completed');
+  const updateData: any = {
+    status: 'completed',
+    completed_at: new Date().toISOString(),
+    ai_response: AI_original_response || JSON.stringify(payload),
+  };
+
+  // Add sources if available
+  if (sources) {
+    updateData.sources = sources;
+  }
+
   const { error: execError } = await supabase
     .from('prompt_executions')
-    .update({
-      status: 'completed',
-      completed_at: new Date().toISOString(),
-      ai_response: JSON.stringify(payload),
-    })
+    .update(updateData)
     .eq('id', executionId);
 
   if (execError) {
@@ -367,7 +425,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Single result processing
-    const { executionId, brandAndCompetitorMentions, sentiment, recommendations, AI_original_response, overallSentiment } = payload;
+    const { executionId } = payload;
 
     if (!executionId) {
       console.error('[n8n-callback] ERROR: Missing executionId in payload');
