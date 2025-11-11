@@ -1,8 +1,12 @@
 # N8N HTTP Request Configuration
 
+## ⚠️ CRITICAL: You MUST add an HTTP Request node to call the callback!
+
+**"Respond to Webhook" is NOT the same as calling the callback URL!**
+
 ## Correct Callback URL
 ```
-https://0ec90b57d6e95fcbda19832f.supabase.co/functions/v1/n8n-callback
+https://ypztlmwevcqqcfbzzzsa.supabase.co/functions/v1/n8n-callback
 ```
 
 ## HTTP Request Node Configuration
@@ -12,7 +16,7 @@ https://0ec90b57d6e95fcbda19832f.supabase.co/functions/v1/n8n-callback
 
 ### URL
 ```
-https://0ec90b57d6e95fcbda19832f.supabase.co/functions/v1/n8n-callback
+https://ypztlmwevcqqcfbzzzsa.supabase.co/functions/v1/n8n-callback
 ```
 
 ### Authentication
@@ -37,35 +41,36 @@ Select: **JSON**
 ### Specify Body
 Select: **Using JSON**
 
-### JSON Body
+### JSON Body (Use the NEW format matching your output!)
 ```json
 {
-  "executionId": "{{ $json.executionId }}",
-  "brandAndCompetitorMentions": {{ $json.brandAndCompetitorMentions }},
-  "overallSentiment": {{ $json.overallSentiment }},
-  "recommendations": {{ $json.recommendations }}
+  "executionId": "{{ $('Webhook').item.json.executionId }}",
+  "AI_Analysis": "{{ $json.AI_Analysis }}",
+  "AI_Response": "{{ $json.AI_Response }}",
+  "Sources": "{{ $json.Sources }}"
 }
 ```
 
+**Note**: Adjust the node reference (`$('Webhook')`) to match where your executionId comes from in your workflow.
+
 ## Important Notes
 
-1. **Place HTTP Request node INSIDE the loop** so it executes for each prompt
-2. **DO NOT use "Respond to Webhook"** after the loop - use HTTP Request instead
-3. Each prompt must get its own callback with its unique `executionId`
-4. The `executionId` comes from the input `Prompts` array
+1. **ADD an HTTP Request node** - "Respond to Webhook" does NOT call the callback URL!
+2. **The HTTP Request must call the n8n-callback edge function**
+3. The `executionId` comes from the webhook input and must be passed through your workflow
+4. You can keep "Respond to Webhook" for debugging, but it doesn't update the database
 
-## Workflow Structure
+## Your Current Workflow Structure (WRONG)
 
 ```
-Webhook
-  ↓
-Code (prepare data)
-  ↓
-Loop Over Items (Prompts array)
-  ↓
-  ├── AI Agent (Google Gemini)
-  ├── Code (format output)
-  └── HTTP Request (send callback) ← Do this for EACH item
+❌ Webhook → AI Processing → Respond to Webhook → (Database never gets updated!)
+```
+
+## Correct Workflow Structure
+
+```
+✅ Webhook → AI Processing → HTTP Request (to n8n-callback) → Database Updated!
+   (Optional: Also add "Respond to Webhook" after HTTP Request for debugging)
 ```
 
 ## Testing the Endpoint
