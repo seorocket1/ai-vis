@@ -76,6 +76,7 @@ export default function DashboardLayout({ children, currentPage }: DashboardLayo
     { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', id: 'dashboard' },
     { icon: Target, label: 'Prompts', href: '/prompts', id: 'prompts' },
     { icon: BarChart3, label: 'Analytics', href: '/analytics', id: 'analytics' },
+    { icon: Globe, label: 'Sources', href: '/sources', id: 'sources' },
     { icon: Users, label: 'Competitors', href: '/competitors', id: 'competitors' },
     { icon: Users, label: 'Competitor Analysis', href: '/competitor-analysis', id: 'competitor-analysis' },
     { icon: Settings, label: 'Settings', href: '/settings', id: 'settings' },

@@ -20,6 +20,7 @@ import GeminiAnalytics from './pages/GeminiAnalytics';
 import ChatGPTAnalytics from './pages/ChatGPTAnalytics';
 import PerplexityAnalytics from './pages/PerplexityAnalytics';
 import AIOverviewAnalytics from './pages/AIOverviewAnalytics';
+import Sources from './pages/Sources';
 import ProtectedRoute from './components/ProtectedRoute';
 
 export default function Router() {
@@ -179,6 +180,14 @@ export default function Router() {
     return (
       <ProtectedRoute>
         <AIOverviewAnalytics />
+      </ProtectedRoute>
+    );
+  }
+
+  if (currentPath === '/sources') {
+    return (
+      <ProtectedRoute>
+        <Sources />
       </ProtectedRoute>
     );
   }

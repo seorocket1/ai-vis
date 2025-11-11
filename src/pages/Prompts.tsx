@@ -61,7 +61,7 @@ export default function Prompts() {
     if (!user) return;
 
     const [promptsResult, profileResult, metricsResult, executionsResult] = await Promise.all([
-      supabase.from('prompts').select('*, prompt_executions(*)').eq('user_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('prompts').select('*, prompt_executions(id, status, ai_response, sources, executed_at, completed_at, model, platform)').eq('user_id', user.id).order('created_at', { ascending: false }),
       supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
       supabase.from('aggregated_metrics').select('*').eq('user_id', user.id).eq('time_period', 'all').maybeSingle(),
       supabase.from('prompt_executions').select('id').eq('user_id', user.id).eq('status', 'completed')
