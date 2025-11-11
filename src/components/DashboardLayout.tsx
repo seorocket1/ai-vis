@@ -15,6 +15,7 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
+  Globe,
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
