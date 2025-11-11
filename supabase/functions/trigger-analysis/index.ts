@@ -176,13 +176,58 @@ Deno.serve(async (req: Request) => {
     const n8nData = await webhookResponse.json();
     console.log('n8n response data:', JSON.stringify(n8nData));
 
+    // Handle new N8N format with capitalized fields
+    let brandAndCompetitorMentions = n8nData.brandAndCompetitorMentions;
+    let sentiment = n8nData.sentiment || n8nData.overallSentiment;
+    let recommendations = n8nData.recommendations;
+    let AI_original_response = n8nData.AI_original_response || n8nData.AI_Response;
+    let sources = n8nData.sources || n8nData.Sources;
+
+    // NEW FORMAT: Parse AI_Analysis if it exists
+    if (n8nData.AI_Analysis) {
+      console.log('Detected new N8N format with AI_Analysis');
+      try {
+        const analysisText = n8nData.AI_Analysis;
+        const jsonBlocks = analysisText.match(/```json\n([\s\S]*?)\n```/g);
+
+        if (jsonBlocks && jsonBlocks.length >= 3) {
+          const brandMentionsJson = jsonBlocks[0].replace(/```json\n|\n```/g, '');
+          brandAndCompetitorMentions = JSON.parse(brandMentionsJson);
+
+          const sentimentJson = jsonBlocks[1].replace(/```json\n|\n```/g, '');
+          sentiment = JSON.parse(sentimentJson);
+
+          const recsJson = jsonBlocks[2].replace(/```json\n|\n```/g, '');
+          const recsObj = JSON.parse(recsJson);
+          recommendations = Object.values(recsObj);
+        }
+      } catch (parseError) {
+        console.error('Error parsing AI_Analysis:', parseError);
+      }
+    }
+
+    // Parse Sources if it's a JSON string
+    if (sources && typeof sources === 'string') {
+      try {
+        sources = JSON.parse(sources);
+      } catch (e) {
+        console.error('Error parsing Sources:', e);
+      }
+    }
+
+    const updateData: any = {
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+      ai_response: AI_original_response || JSON.stringify(n8nData),
+    };
+
+    if (sources) {
+      updateData.sources = sources;
+    }
+
     const { error: execError } = await supabase
       .from('prompt_executions')
-      .update({
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-        ai_response: JSON.stringify(n8nData),
-      })
+      .update(updateData)
       .eq('id', executionId);
 
     if (execError) {
@@ -190,11 +235,11 @@ Deno.serve(async (req: Request) => {
       throw execError;
     }
 
-    if (n8nData.brandAndCompetitorMentions) {
-      const mentions = Object.entries(n8nData.brandAndCompetitorMentions).map(([brand, count]) => ({
+    if (brandAndCompetitorMentions) {
+      const mentions = Object.entries(brandAndCompetitorMentions).map(([brand, count]) => ({
         execution_id: executionId,
         brand_name: brand,
-        mention_count: count as number,
+        mention_count: typeof count === 'string' ? parseInt(count, 10) : (count as number),
         is_user_brand: Brand.toLowerCase() === brand.toLowerCase(),
       }));
 
@@ -209,25 +254,18 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    if (n8nData.overallSentiment) {
-      const sentiment = n8nData.overallSentiment;
-      const parsePercent = (val: string) => {
+    if (sentiment) {
+      const parsePercent = (val: any) => {
+        if (typeof val === 'number') return val;
         if (typeof val === 'string') {
           return parseFloat(val.replace('%', '')) || 0;
         }
-        return val || 0;
+        return 0;
       };
 
-      const positiveScore = parsePercent(sentiment.Positive);
-      const neutralScore = parsePercent(sentiment.Neutral);
-      const negativeScore = parsePercent(sentiment.Negative);
-
-      let overall = 'neutral';
-      if (positiveScore > neutralScore && positiveScore > negativeScore) {
-        overall = 'positive';
-      } else if (negativeScore > positiveScore && negativeScore > neutralScore) {
-        overall = 'negative';
-      }
+      const positiveScore = parsePercent(sentiment.Positive || sentiment.positive);
+      const neutralScore = parsePercent(sentiment.Neutral || sentiment.neutral);
+      const negativeScore = parsePercent(sentiment.Negative || sentiment.negative);
 
       const { error: sentimentError } = await supabase
         .from('sentiment_analysis')
@@ -245,8 +283,8 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    if (n8nData.recommendations && Array.isArray(n8nData.recommendations)) {
-      const recs = n8nData.recommendations.map((rec: any, index: number) => ({
+    if (recommendations && Array.isArray(recommendations)) {
+      const recs = recommendations.map((rec: any, index: number) => ({
         execution_id: executionId,
         recommendation_id: `rec_${index + 1}`,
         text: typeof rec === 'string' ? rec : rec.text,
