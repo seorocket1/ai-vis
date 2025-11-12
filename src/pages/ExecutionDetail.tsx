@@ -12,6 +12,9 @@ export default function ExecutionDetail() {
   const [promptData, setPromptData] = useState<any>(null);
   const [allExecutions, setAllExecutions] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
+  const [brandMentions, setBrandMentions] = useState<any[]>([]);
+  const [sentiment, setSentiment] = useState<any>(null);
+  const [recommendations, setRecommendations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('');
   const executionId = window.location.pathname.split('/').pop();
@@ -27,6 +30,26 @@ export default function ExecutionDetail() {
       setActiveTab(allExecutions[0].id);
     }
   }, [allExecutions]);
+
+  useEffect(() => {
+    if (activeTab) {
+      loadExecutionData(activeTab);
+    }
+  }, [activeTab]);
+
+  const loadExecutionData = async (execId: string) => {
+    if (!user) return;
+
+    const [mentionsResult, sentimentResult, recsResult] = await Promise.all([
+      supabase.from('brand_mentions').select('*').eq('execution_id', execId),
+      supabase.from('sentiment_analysis').select('*').eq('execution_id', execId).maybeSingle(),
+      supabase.from('recommendations').select('*').eq('execution_id', execId).order('recommendation_id', { ascending: true }),
+    ]);
+
+    setBrandMentions(mentionsResult.data || []);
+    setSentiment(sentimentResult.data);
+    setRecommendations(recsResult.data || []);
+  };
 
   const loadData = async () => {
     if (!user || !executionId) return;
@@ -109,25 +132,23 @@ export default function ExecutionDetail() {
 
   const currentExec = getCurrentExecution();
   const aiData = parseAIResponse(currentExec);
-  const brandMentions = aiData?.brandAndCompetitorMentions || {};
   const userBrand = profile?.brand_name || '';
 
-  const userBrandCount = Object.entries(brandMentions).reduce((count, [name, mentions]) => {
-    if (!userBrand) return count;
-    const matches = name.toLowerCase().includes(userBrand.toLowerCase()) || userBrand.toLowerCase().includes(name.toLowerCase());
-    if (matches) {
-      return count + (mentions as number);
-    }
-    return count;
-  }, 0);
+  const userBrandCount = brandMentions
+    .filter(m => m.is_user_brand)
+    .reduce((sum, m) => sum + m.mention_count, 0);
 
-  const competitors = Object.entries(brandMentions).filter(([name]) => {
-    return !name.toLowerCase().includes(userBrand.toLowerCase()) && !userBrand.toLowerCase().includes(name.toLowerCase());
-  });
+  const competitors = brandMentions
+    .filter(m => !m.is_user_brand)
+    .map(m => [m.brand_name, m.mention_count] as [string, number]);
 
-  const sentiment = aiData?.overallSentiment;
-  const recommendations = aiData?.recommendations || [];
-  const aiOriginalResponse = aiData?.AI_original_response || '';
+  const sentimentData = sentiment ? {
+    Positive: `${sentiment.positive_percentage}%`,
+    Neutral: `${sentiment.neutral_percentage}%`,
+    Negative: `${sentiment.negative_percentage}%`,
+  } : null;
+
+  const aiOriginalResponse = currentExec?.ai_response || '';
 
   const platformDisplayNames: Record<string, string> = {
     gemini: 'Gemini',
@@ -223,7 +244,7 @@ export default function ExecutionDetail() {
           </div>
         )}
 
-        {currentExec?.status === 'completed' && aiData && (
+        {currentExec?.status === 'completed' && (
           <div className="space-y-6">
             {/* Brand Mention Status */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -282,25 +303,25 @@ export default function ExecutionDetail() {
             )}
 
             {/* Sentiment Analysis */}
-            {sentiment && (
+            {sentimentData && (
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                 <h2 className="text-xl font-bold text-slate-900 mb-6">Sentiment Analysis</h2>
                 <div className="grid md:grid-cols-3 gap-6">
                   <div className="text-center">
                     <div className="w-24 h-24 mx-auto mb-3 rounded-full bg-green-100 flex items-center justify-center">
-                      <span className="text-2xl font-bold text-green-700">{sentiment.Positive}</span>
+                      <span className="text-2xl font-bold text-green-700">{sentimentData.Positive}</span>
                     </div>
                     <p className="font-semibold text-slate-900">Positive</p>
                   </div>
                   <div className="text-center">
                     <div className="w-24 h-24 mx-auto mb-3 rounded-full bg-slate-100 flex items-center justify-center">
-                      <span className="text-2xl font-bold text-slate-700">{sentiment.Neutral}</span>
+                      <span className="text-2xl font-bold text-slate-700">{sentimentData.Neutral}</span>
                     </div>
                     <p className="font-semibold text-slate-900">Neutral</p>
                   </div>
                   <div className="text-center">
                     <div className="w-24 h-24 mx-auto mb-3 rounded-full bg-red-100 flex items-center justify-center">
-                      <span className="text-2xl font-bold text-red-700">{sentiment.Negative}</span>
+                      <span className="text-2xl font-bold text-red-700">{sentimentData.Negative}</span>
                     </div>
                     <p className="font-semibold text-slate-900">Negative</p>
                   </div>
