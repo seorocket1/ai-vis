@@ -148,7 +148,39 @@ export default function ExecutionDetail() {
     Negative: `${sentiment.negative_percentage}%`,
   } : null;
 
-  const aiOriginalResponse = currentExec?.ai_response || '';
+  // Parse AI response properly
+  let aiOriginalResponse = '';
+  if (currentExec?.ai_response) {
+    try {
+      const parsed = typeof currentExec.ai_response === 'string' ? JSON.parse(currentExec.ai_response) : currentExec.ai_response;
+      aiOriginalResponse = parsed.AI_Response || parsed.AI_original_response || currentExec.ai_response;
+    } catch {
+      aiOriginalResponse = currentExec.ai_response;
+    }
+  }
+
+  // Parse sources
+  let sources: string[] = [];
+  if (currentExec?.sources) {
+    try {
+      sources = Array.isArray(currentExec.sources) ? currentExec.sources : JSON.parse(currentExec.sources);
+    } catch {
+      sources = [];
+    }
+  }
+
+  // Calculate domain statistics
+  const domainStats = sources.reduce((acc: Record<string, number>, url: string) => {
+    try {
+      const domain = new URL(url).hostname.replace('www.', '');
+      acc[domain] = (acc[domain] || 0) + 1;
+    } catch {
+      // Invalid URL, skip
+    }
+    return acc;
+  }, {});
+
+  const sortedDomains = Object.entries(domainStats).sort(([, a], [, b]) => b - a);
 
   const platformDisplayNames: Record<string, string> = {
     gemini: 'Gemini',
@@ -333,8 +365,57 @@ export default function ExecutionDetail() {
             {aiOriginalResponse && (
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                 <h2 className="text-xl font-bold text-slate-900 mb-6">AI Answer</h2>
-                <div className="prose prose-slate prose-lg max-w-none prose-headings:mt-8 prose-headings:mb-4 prose-p:my-4 prose-p:leading-relaxed prose-li:my-2 prose-ul:my-4 prose-ol:my-4 max-h-96 overflow-y-auto border border-slate-200 rounded-lg p-4 bg-slate-50">
+                <div className="prose prose-slate max-w-none prose-headings:font-bold prose-headings:text-slate-900 prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:text-slate-700 prose-p:leading-relaxed prose-li:text-slate-700 prose-strong:text-slate-900 prose-a:text-blue-600 hover:prose-a:text-blue-700 max-h-96 overflow-y-auto border border-slate-200 rounded-lg p-6 bg-slate-50">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiOriginalResponse}</ReactMarkdown>
+                </div>
+              </div>
+            )}
+
+            {/* Sources Section */}
+            {sources.length > 0 && (
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Domain Analysis */}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                  <h2 className="text-xl font-bold text-slate-900 mb-6">Top Domains</h2>
+                  <div className="space-y-3">
+                    {sortedDomains.slice(0, 10).map(([domain, count]) => (
+                      <div key={domain} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                          <span className="font-medium text-slate-900 truncate">{domain}</span>
+                        </div>
+                        <span className="ml-3 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-bold flex-shrink-0">
+                          {count}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-slate-200">
+                    <p className="text-sm text-slate-600">
+                      <span className="font-semibold">{sortedDomains.length}</span> unique domains • <span className="font-semibold">{sources.length}</span> total sources
+                    </p>
+                  </div>
+                </div>
+
+                {/* All Sources */}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                  <h2 className="text-xl font-bold text-slate-900 mb-6">All Sources</h2>
+                  <div className="space-y-2 max-h-80 overflow-y-auto">
+                    {sources.map((url, index) => (
+                      <a
+                        key={index}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block p-3 bg-slate-50 border border-slate-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className="text-xs font-bold text-slate-400 flex-shrink-0 mt-0.5">{index + 1}</span>
+                          <span className="text-sm text-blue-600 hover:text-blue-700 break-all">{url}</span>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
