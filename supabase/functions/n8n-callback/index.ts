@@ -8,7 +8,6 @@ const corsHeaders = {
 };
 
 async function processSingleResult(supabase: any, payload: any) {
-  // Handle new N8N format with capitalized fields
   let executionId = payload.executionId;
   let brandAndCompetitorMentions = payload.brandAndCompetitorMentions;
   let sentiment = payload.sentiment;
@@ -17,26 +16,19 @@ async function processSingleResult(supabase: any, payload: any) {
   let overallSentiment = payload.overallSentiment;
   let sources = payload.sources;
 
-  // NEW FORMAT: Parse AI_Analysis if it exists
   if (payload.AI_Analysis) {
     console.log('[processSingleResult] Detected new N8N format with AI_Analysis');
     try {
-      // AI_Analysis contains multiple JSON blocks as a string
       const analysisText = payload.AI_Analysis;
-
-      // Extract JSON blocks using regex
       const jsonBlocks = analysisText.match(/```json\n([\s\S]*?)\n```/g);
 
       if (jsonBlocks && jsonBlocks.length >= 3) {
-        // First block: brand mentions
         const brandMentionsJson = jsonBlocks[0].replace(/```json\n|\n```/g, '');
         brandAndCompetitorMentions = JSON.parse(brandMentionsJson);
 
-        // Second block: sentiment
         const sentimentJson = jsonBlocks[1].replace(/```json\n|\n```/g, '');
         sentiment = JSON.parse(sentimentJson);
 
-        // Third block: recommendations
         const recsJson = jsonBlocks[2].replace(/```json\n|\n```/g, '');
         const recsObj = JSON.parse(recsJson);
         recommendations = Object.values(recsObj);
@@ -46,12 +38,10 @@ async function processSingleResult(supabase: any, payload: any) {
     }
   }
 
-  // NEW FORMAT: Use AI_Response if AI_original_response is not present
   if (!AI_original_response && payload.AI_Response) {
     AI_original_response = payload.AI_Response;
   }
 
-  // NEW FORMAT: Parse Sources if it's a JSON string
   if (payload.Sources) {
     try {
       sources = typeof payload.Sources === 'string' ? JSON.parse(payload.Sources) : payload.Sources;
@@ -89,6 +79,10 @@ async function processSingleResult(supabase: any, payload: any) {
     completed_at: new Date().toISOString(),
     ai_response: AI_original_response || JSON.stringify(payload),
   };
+
+  if (sources) {
+    updateData.sources = sources;
+  }
 
   const { error: execError } = await supabase
     .from('prompt_executions')
@@ -261,7 +255,7 @@ async function calculateAndStoreMetrics(supabase: any, userId: string) {
       : 0;
 
     const avgNegative = sentiments.length > 0
-      ? sentiments.reduce((sum: number, s: any) => sum + (parseFloat(s.negative_percentage) || 0), 0) / sentiments.length
+      ? sentiments.reduce((sum: number, s: any) => sum + (parseFloat(s.negative_sentiment) || 0), 0) / sentiments.length
       : 0;
 
     const avgSentimentScore = avgPositive - avgNegative;
@@ -380,11 +374,9 @@ Deno.serve(async (req: Request) => {
 
     console.log('[n8n-callback] Full payload received:', JSON.stringify(payload, null, 2));
 
-    // Check if this is a batch response (array of results) or single result
     if (Array.isArray(payload)) {
       console.log('[n8n-callback] Batch response detected with', payload.length, 'items');
 
-      // Process each item in the batch
       let successCount = 0;
       let errorCount = 0;
 
@@ -419,7 +411,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Single result processing
     const { executionId } = payload;
 
     if (!executionId) {
