@@ -90,11 +90,6 @@ async function processSingleResult(supabase: any, payload: any) {
     ai_response: AI_original_response || JSON.stringify(payload),
   };
 
-  // Add sources if available
-  if (sources) {
-    updateData.sources = sources;
-  }
-
   const { error: execError } = await supabase
     .from('prompt_executions')
     .update(updateData)
