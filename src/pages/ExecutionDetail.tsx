@@ -17,6 +17,7 @@ export default function ExecutionDetail() {
   const [recommendations, setRecommendations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('');
+  const [hasInitializedTab, setHasInitializedTab] = useState(false);
   const executionId = window.location.pathname.split('/').pop();
 
   useEffect(() => {
@@ -26,10 +27,11 @@ export default function ExecutionDetail() {
   }, [executionId, user]);
 
   useEffect(() => {
-    if (allExecutions.length > 0 && !activeTab) {
+    if (allExecutions.length > 0 && !activeTab && !hasInitializedTab) {
       setActiveTab(allExecutions[0].id);
+      setHasInitializedTab(true);
     }
-  }, [allExecutions]);
+  }, [allExecutions, activeTab, hasInitializedTab]);
 
   useEffect(() => {
     if (activeTab) {

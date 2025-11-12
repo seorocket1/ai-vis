@@ -114,19 +114,21 @@ export default function DashboardLayout({ children, currentPage }: DashboardLayo
       </div>
 
       <aside
-        className={`fixed top-0 left-0 bottom-0 w-64 bg-white border-r border-slate-200 transition-transform duration-300 z-50 ${
+        className={`fixed top-0 left-0 bottom-0 w-64 bg-white border-r border-slate-200 transition-transform duration-300 z-50 flex flex-col ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } lg:translate-x-0`}
       >
-        <div className="p-6">
+        <div className="p-6 flex-shrink-0">
           <div className="flex items-center gap-2 mb-8">
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
               <Target className="w-6 h-6 text-white" />
             </div>
             <span className="font-bold text-xl text-slate-900">BrandTracker</span>
           </div>
+        </div>
 
-          <nav className="space-y-1">
+        <div className="flex-1 overflow-y-auto px-6">
+          <nav className="space-y-1 pb-4">
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentPage === item.id;
@@ -191,7 +193,7 @@ export default function DashboardLayout({ children, currentPage }: DashboardLayo
           </nav>
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-slate-200">
+        <div className="flex-shrink-0 p-6 border-t border-slate-200 bg-white">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center">
               <span className="text-sm font-medium text-slate-700">

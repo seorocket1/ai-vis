@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import DashboardLayout from '../components/DashboardLayout';
-import { TrendingUp, TrendingDown, Activity, Target, BarChart3, Users } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Target, BarChart3, Users, Globe, Link } from 'lucide-react';
 
 export default function Analytics() {
   const { user } = useAuth();
@@ -13,6 +13,7 @@ export default function Analytics() {
   const [executions, setExecutions] = useState<any[]>([]);
   const [mentions, setMentions] = useState<any[]>([]);
   const [sentiments, setSentiments] = useState<any[]>([]);
+  const [sourcesAnalytics, setSourcesAnalytics] = useState<any>(null);
 
   useEffect(() => {
     loadAnalytics();
@@ -104,6 +105,49 @@ export default function Analytics() {
     }));
 
     setPlatforms(platformData);
+
+    // Analyze sources
+    const allSources: string[] = [];
+    executions.forEach((exec: any) => {
+      if (exec.sources) {
+        try {
+          const sources = Array.isArray(exec.sources) ? exec.sources : JSON.parse(exec.sources);
+          allSources.push(...sources);
+        } catch (e) {
+          console.error('Error parsing sources:', e);
+        }
+      }
+    });
+
+    const domainCounts: Record<string, { count: number; urls: Set<string> }> = {};
+    allSources.forEach((url: string) => {
+      try {
+        const domain = new URL(url).hostname.replace('www.', '');
+        if (!domainCounts[domain]) {
+          domainCounts[domain] = { count: 0, urls: new Set() };
+        }
+        domainCounts[domain].count += 1;
+        domainCounts[domain].urls.add(url);
+      } catch (e) {
+        // Invalid URL
+      }
+    });
+
+    const sortedDomains = Object.entries(domainCounts)
+      .map(([domain, data]) => ({
+        domain,
+        count: data.count,
+        uniqueUrls: data.urls.size,
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    setSourcesAnalytics({
+      totalSources: allSources.length,
+      uniqueDomains: sortedDomains.length,
+      topDomains: sortedDomains.slice(0, 20),
+      domainDistribution: sortedDomains,
+    });
+
     setLoading(false);
   };
 
@@ -122,6 +166,7 @@ export default function Analytics() {
     { id: 'competitive', label: 'Competitive', icon: Users },
     { id: 'sentiment', label: 'Sentiment', icon: TrendingUp },
     { id: 'platforms', label: 'Platforms', icon: BarChart3 },
+    { id: 'sources', label: 'Sources', icon: Globe },
     { id: 'trends', label: 'Trends', icon: Target },
   ];
 
@@ -352,6 +397,137 @@ export default function Analytics() {
                         </div>
                       ))}
                     </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'sources' && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold text-slate-900 mb-6">Sources Analytics</h2>
+
+                  {!sourcesAnalytics || sourcesAnalytics.totalSources === 0 ? (
+                    <div className="text-center py-12 text-slate-500">
+                      <Globe className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                      <p>No sources data available yet.</p>
+                      <p className="text-sm mt-2">Run analyses to see which domains AI platforms cite when mentioning your brand.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid md:grid-cols-3 gap-6 mb-6">
+                        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="p-2 bg-blue-500 rounded-lg">
+                              <Link className="w-5 h-5 text-white" />
+                            </div>
+                            <h3 className="font-semibold text-slate-900">Total Sources</h3>
+                          </div>
+                          <div className="text-3xl font-bold text-blue-600">{sourcesAnalytics.totalSources}</div>
+                          <p className="text-sm text-slate-600 mt-1">Across all analyses</p>
+                        </div>
+
+                        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl p-6 border border-emerald-200">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="p-2 bg-emerald-500 rounded-lg">
+                              <Globe className="w-5 h-5 text-white" />
+                            </div>
+                            <h3 className="font-semibold text-slate-900">Unique Domains</h3>
+                          </div>
+                          <div className="text-3xl font-bold text-emerald-600">{sourcesAnalytics.uniqueDomains}</div>
+                          <p className="text-sm text-slate-600 mt-1">Different sources cited</p>
+                        </div>
+
+                        <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl p-6 border border-amber-200">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="p-2 bg-amber-500 rounded-lg">
+                              <BarChart3 className="w-5 h-5 text-white" />
+                            </div>
+                            <h3 className="font-semibold text-slate-900">Avg per Domain</h3>
+                          </div>
+                          <div className="text-3xl font-bold text-amber-600">
+                            {(sourcesAnalytics.totalSources / Math.max(sourcesAnalytics.uniqueDomains, 1)).toFixed(1)}
+                          </div>
+                          <p className="text-sm text-slate-600 mt-1">Citations per domain</p>
+                        </div>
+                      </div>
+
+                      <div className="bg-white border border-slate-200 rounded-xl p-6">
+                        <h3 className="text-lg font-semibold text-slate-900 mb-4">Top 20 Most Cited Domains</h3>
+                        <p className="text-sm text-slate-600 mb-6">
+                          These domains are most frequently cited by AI platforms when discussing topics related to your brand.
+                          Focus on building relationships and content on these high-authority domains.
+                        </p>
+                        <div className="space-y-3">
+                          {sourcesAnalytics.topDomains.map((item: any, index: number) => (
+                            <div key={item.domain} className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200 hover:shadow-md transition-all">
+                              <div className="flex items-center justify-center w-8 h-8 bg-blue-500 text-white rounded-lg font-bold text-sm flex-shrink-0">
+                                {index + 1}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <Globe className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                  <span className="font-medium text-slate-900 truncate">{item.domain}</span>
+                                </div>
+                                <div className="text-xs text-slate-500 mt-1">
+                                  {item.uniqueUrls} unique URL{item.uniqueUrls !== 1 ? 's' : ''}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3 flex-shrink-0">
+                                <div className="text-right">
+                                  <div className="text-2xl font-bold text-slate-900">{item.count}</div>
+                                  <div className="text-xs text-slate-500">citations</div>
+                                </div>
+                                <div className="w-24 bg-slate-200 rounded-full h-2">
+                                  <div
+                                    className="bg-blue-500 h-2 rounded-full transition-all"
+                                    style={{ width: `${(item.count / sourcesAnalytics.topDomains[0].count) * 100}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-6">
+                        <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                          <Target className="w-5 h-5 text-purple-600" />
+                          Strategic Insights
+                        </h3>
+                        <div className="space-y-3 text-sm">
+                          <div className="flex items-start gap-3 p-3 bg-white rounded-lg">
+                            <div className="w-2 h-2 bg-purple-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                            <div>
+                              <span className="font-semibold text-slate-900">High Authority Domains: </span>
+                              <span className="text-slate-700">
+                                The top {Math.min(5, sourcesAnalytics.topDomains.length)} domains account for{' '}
+                                {((sourcesAnalytics.topDomains.slice(0, 5).reduce((sum: number, d: any) => sum + d.count, 0) / sourcesAnalytics.totalSources) * 100).toFixed(1)}%
+                                of all citations. Focus your content strategy on these platforms.
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-3 p-3 bg-white rounded-lg">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                            <div>
+                              <span className="font-semibold text-slate-900">Diversification: </span>
+                              <span className="text-slate-700">
+                                {sourcesAnalytics.uniqueDomains > 20
+                                  ? 'Your brand has strong domain diversity, which reduces dependency on single sources.'
+                                  : 'Consider expanding content across more authoritative domains to improve AI citation diversity.'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-3 p-3 bg-white rounded-lg">
+                            <div className="w-2 h-2 bg-emerald-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                            <div>
+                              <span className="font-semibold text-slate-900">Opportunity: </span>
+                              <span className="text-slate-700">
+                                Build backlinks and create quality content on the top-cited domains to increase your brand's AI visibility.
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               )}
