@@ -173,8 +173,16 @@ Deno.serve(async (req: Request) => {
       throw new Error(`n8n webhook failed: ${webhookResponse.status} - ${responseText}`);
     }
 
-    const n8nData = await webhookResponse.json();
-    console.log('n8n response data:', JSON.stringify(n8nData));
+    let n8nData = await webhookResponse.json();
+    console.log('n8n response data (raw):', JSON.stringify(n8nData));
+
+    // N8N returns an array with one object - extract it
+    if (Array.isArray(n8nData) && n8nData.length > 0) {
+      console.log('N8N returned array, extracting first element');
+      n8nData = n8nData[0];
+    }
+
+    console.log('n8n response data (processed):', JSON.stringify(n8nData));
 
     // Handle new N8N format with capitalized fields
     let brandAndCompetitorMentions = n8nData.brandAndCompetitorMentions;
