@@ -26,12 +26,7 @@ export default function ExecutionDetail() {
     return () => clearInterval(interval);
   }, [executionId, user]);
 
-  useEffect(() => {
-    if (allExecutions.length > 0 && !activeTab && !hasInitializedTab) {
-      setActiveTab(allExecutions[0].id);
-      setHasInitializedTab(true);
-    }
-  }, [allExecutions, activeTab, hasInitializedTab]);
+  // Removed the problematic useEffect that was causing tab auto-switching
 
   useEffect(() => {
     if (activeTab) {
@@ -80,12 +75,10 @@ export default function ExecutionDetail() {
         .order('executed_at', { ascending: false });
 
       setAllExecutions(relatedExecutions || []);
-      if (relatedExecutions && relatedExecutions.length > 0) {
-        const currentPlatform = currentExecution.platform;
-        const existingExecForPlatform = relatedExecutions.find(e => e.platform === currentPlatform && e.id !== currentExecution.id);
-        if (!activeTab || (existingExecForPlatform && activeTab === existingExecForPlatform.id)) {
-          setActiveTab(currentExecution.id);
-        }
+      // Only set activeTab once on initial load
+      if (relatedExecutions && relatedExecutions.length > 0 && !hasInitializedTab) {
+        setActiveTab(currentExecution.id);
+        setHasInitializedTab(true);
       }
     }
 

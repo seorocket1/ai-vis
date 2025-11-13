@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import DashboardLayout from '../components/DashboardLayout';
-import { TrendingUp, TrendingDown, BarChart3, Target, Award, AlertTriangle, CheckCircle, Sparkles } from 'lucide-react';
+import { TrendingUp, TrendingDown, BarChart3, Target, Award, AlertTriangle, CheckCircle, Sparkles, Globe, Link } from 'lucide-react';
 
 interface PlatformAnalyticsProps {
   platform: 'gemini' | 'chatgpt' | 'perplexity' | 'ai-overview';
@@ -19,6 +19,7 @@ export default function PlatformAnalytics({ platform, platformName, platformColo
   const [brandMentions, setBrandMentions] = useState<any[]>([]);
   const [sentimentData, setSentimentData] = useState<any[]>([]);
   const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [sourcesStats, setSourcesStats] = useState<any>(null);
 
   useEffect(() => {
     loadPlatformData();
@@ -54,6 +55,37 @@ export default function PlatformAnalytics({ platform, platformName, platformColo
     setBrandMentions(mentionsResult.data || []);
     setSentimentData(sentimentResult.data || []);
     setRecommendations(recsResult.data || []);
+
+    // Calculate sources stats
+    const allSources: string[] = [];
+    execs.forEach((exec: any) => {
+      if (exec.sources) {
+        try {
+          const sources = Array.isArray(exec.sources) ? exec.sources : JSON.parse(exec.sources);
+          allSources.push(...sources);
+        } catch (e) {}
+      }
+    });
+
+    const domainCounts: Record<string, number> = {};
+    allSources.forEach((url: string) => {
+      try {
+        const domain = new URL(url).hostname.replace('www.', '');
+        domainCounts[domain] = (domainCounts[domain] || 0) + 1;
+      } catch (e) {}
+    });
+
+    const topDomains = Object.entries(domainCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 10)
+      .map(([domain, count]) => ({ domain, count }));
+
+    setSourcesStats({
+      totalSources: allSources.length,
+      uniqueDomains: Object.keys(domainCounts).length,
+      topDomains,
+    });
+
     setLoading(false);
   };
 
@@ -282,6 +314,73 @@ export default function PlatformAnalytics({ platform, platformName, platformColo
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            )}
+
+            {/* Sources Analytics */}
+            {sourcesStats && sourcesStats.totalSources > 0 && (
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 bg-emerald-100 rounded-lg">
+                    <Globe className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-slate-900">Sources Cited on {platformName}</h2>
+                </div>
+                <div className="grid md:grid-cols-3 gap-4 mb-6">
+                  <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Link className="w-4 h-4 text-blue-600" />
+                      <p className="text-sm text-slate-600">Total Sources</p>
+                    </div>
+                    <p className="text-2xl font-bold text-blue-600">{sourcesStats.totalSources}</p>
+                  </div>
+                  <div className="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg border border-emerald-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Globe className="w-4 h-4 text-emerald-600" />
+                      <p className="text-sm text-slate-600">Unique Domains</p>
+                    </div>
+                    <p className="text-2xl font-bold text-emerald-600">{sourcesStats.uniqueDomains}</p>
+                  </div>
+                  <div className="p-4 bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg border border-amber-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <BarChart3 className="w-4 h-4 text-amber-600" />
+                      <p className="text-sm text-slate-600">Avg per Domain</p>
+                    </div>
+                    <p className="text-2xl font-bold text-amber-600">
+                      {(sourcesStats.totalSources / Math.max(sourcesStats.uniqueDomains, 1)).toFixed(1)}
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-700 mb-3">Top 10 Most Cited Domains</h3>
+                  <p className="text-xs text-slate-600 mb-4">
+                    {platformName} frequently cites these domains. Build your presence here to improve visibility.
+                  </p>
+                  <div className="space-y-2">
+                    {sourcesStats.topDomains.map((item: any, index: number) => (
+                      <div key={item.domain} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200 hover:shadow-md transition-all">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <span className="flex items-center justify-center w-7 h-7 bg-emerald-500 text-white rounded-lg font-bold text-xs flex-shrink-0">
+                            {index + 1}
+                          </span>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Globe className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                            <span className="font-medium text-slate-900 truncate">{item.domain}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          <span className="text-lg font-bold text-slate-900">{item.count}</span>
+                          <div className="w-20 bg-slate-200 rounded-full h-2">
+                            <div
+                              className="bg-emerald-500 h-2 rounded-full transition-all"
+                              style={{ width: `${(item.count / sourcesStats.topDomains[0].count) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

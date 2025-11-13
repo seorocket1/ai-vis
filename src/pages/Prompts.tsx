@@ -28,6 +28,7 @@ export default function Prompts() {
   const [isBulkMode, setIsBulkMode] = useState(false);
   const [bulkPromptText, setBulkPromptText] = useState('');
   const [selectedPrompts, setSelectedPrompts] = useState<string[]>([]);
+  const [bulkPlatforms, setBulkPlatforms] = useState<string[]>(['gemini']);
   const [profile, setProfile] = useState<any>(null);
   const [promptLimit, setPromptLimit] = useState({ current: 0, limit: 5, allowed: true });
   const [stats, setStats] = useState({
@@ -419,18 +420,27 @@ export default function Prompts() {
       return;
     }
 
-    if (promptLimit.current + lines.length > promptLimit.limit) {
-      alert(`Cannot add ${lines.length} prompts. You have ${promptLimit.current}/${promptLimit.limit} prompts. ${promptLimit.limit === 5 ? 'Upgrade to Pro for 50 prompts!' : `You can only add ${promptLimit.limit - promptLimit.current} more.`}`);
+    // Calculate total prompts to be created (lines * platforms)
+    const totalPromptsToCreate = lines.length * bulkPlatforms.length;
+
+    if (promptLimit.current + totalPromptsToCreate > promptLimit.limit) {
+      alert(`Cannot add ${totalPromptsToCreate} prompts (${lines.length} texts × ${bulkPlatforms.length} platforms). You have ${promptLimit.current}/${promptLimit.limit} prompts. ${promptLimit.limit === 5 ? 'Upgrade to Pro for 50 prompts!' : `You can only add ${promptLimit.limit - promptLimit.current} more.`}`);
       return;
     }
 
-    const promptsToInsert = lines.map(line => ({
-      user_id: user.id,
-      text: line.trim(),
-      frequency: newPromptFrequency,
-      platform: newPromptPlatform,
-      is_active: true,
-    }));
+    // Create prompts for each line and each selected platform
+    const promptsToInsert = [];
+    for (const line of lines) {
+      for (const platform of bulkPlatforms) {
+        promptsToInsert.push({
+          user_id: user.id,
+          text: line.trim(),
+          frequency: newPromptFrequency,
+          platform: platform,
+          is_active: true,
+        });
+      }
+    }
 
     const { data, error } = await supabase.from('prompts').insert(promptsToInsert).select();
 
@@ -735,15 +745,24 @@ export default function Prompts() {
                             type="checkbox"
                             checked={selectedPrompts.includes(prompt.id)}
                             onChange={() => togglePromptSelection(prompt.id)}
-                            className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                            disabled={hasProcessing}
+                            className={`w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 ${
+                              hasProcessing ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
                           />
                         </td>
                         <td className="py-4 px-4">
                           <button
                             onClick={() => handleToggleActive(prompt)}
+                            disabled={hasProcessing}
                             className={`w-10 h-6 rounded-full transition-all ${
+                              hasProcessing
+                                ? 'opacity-50 cursor-not-allowed'
+                                : ''
+                            } ${
                               prompt.is_active ? 'bg-emerald-500' : 'bg-slate-300'
                             }`}
+                            title={hasProcessing ? "Cannot toggle while processing" : "Toggle active status"}
                           >
                             <div
                               className={`w-4 h-4 bg-white rounded-full transition-all ${
@@ -875,22 +894,37 @@ export default function Prompts() {
                           <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
                               onClick={() => triggerPrompt(prompt.id)}
-                              className="p-2 text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
-                              title="Run analysis"
+                              disabled={hasProcessing}
+                              className={`p-2 text-white rounded-lg transition-colors ${
+                                hasProcessing
+                                  ? 'bg-slate-300 cursor-not-allowed'
+                                  : 'bg-emerald-600 hover:bg-emerald-700'
+                              }`}
+                              title={hasProcessing ? "Analysis in progress" : "Run analysis"}
                             >
                               <Play className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => openEditModal(prompt)}
-                              className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                              title="Edit"
+                              disabled={hasProcessing}
+                              className={`p-2 rounded-lg transition-colors ${
+                                hasProcessing
+                                  ? 'text-slate-300 cursor-not-allowed'
+                                  : 'text-slate-600 hover:bg-slate-100'
+                              }`}
+                              title={hasProcessing ? "Cannot edit while processing" : "Edit"}
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDelete(prompt.id)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete"
+                              disabled={hasProcessing}
+                              className={`p-2 rounded-lg transition-colors ${
+                                hasProcessing
+                                  ? 'text-slate-300 cursor-not-allowed'
+                                  : 'text-red-600 hover:bg-red-50'
+                              }`}
+                              title={hasProcessing ? "Cannot delete while processing" : "Delete"}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -949,21 +983,62 @@ export default function Prompts() {
 
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Target Platform
+                    Target Platform{isBulkMode ? 's' : ''}
                   </label>
-                  <select
-                    value={newPromptPlatform}
-                    onChange={(e) => setNewPromptPlatform(e.target.value)}
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  >
-                    <option value="gemini">Gemini</option>
-                    <option value="chatgpt">ChatGPT</option>
-                    <option value="perplexity">Perplexity</option>
-                    <option value="ai-overview">AI Overview</option>
-                  </select>
-                  <p className="text-xs text-slate-500 mt-2">
-                    Select which AI platform to analyze this prompt on
-                  </p>
+                  {isBulkMode ? (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        {[
+                          { value: 'gemini', label: 'Gemini', color: 'emerald' },
+                          { value: 'chatgpt', label: 'ChatGPT', color: 'green' },
+                          { value: 'perplexity', label: 'Perplexity', color: 'blue' },
+                          { value: 'ai-overview', label: 'AI Overview', color: 'purple' },
+                        ].map((platform) => (
+                          <label
+                            key={platform.value}
+                            className={`flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                              bulkPlatforms.includes(platform.value)
+                                ? 'border-blue-500 bg-blue-50'
+                                : 'border-slate-200 hover:border-slate-300'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={bulkPlatforms.includes(platform.value)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setBulkPlatforms([...bulkPlatforms, platform.value]);
+                                } else {
+                                  setBulkPlatforms(bulkPlatforms.filter(p => p !== platform.value));
+                                }
+                              }}
+                              className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                            />
+                            <span className="font-medium text-slate-900">{platform.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Each prompt will be created for all selected platforms ({bulkPlatforms.length} selected)
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <select
+                        value={newPromptPlatform}
+                        onChange={(e) => setNewPromptPlatform(e.target.value)}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      >
+                        <option value="gemini">Gemini</option>
+                        <option value="chatgpt">ChatGPT</option>
+                        <option value="perplexity">Perplexity</option>
+                        <option value="ai-overview">AI Overview</option>
+                      </select>
+                      <p className="text-xs text-slate-500 mt-2">
+                        Select which AI platform to analyze this prompt on
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 <div>

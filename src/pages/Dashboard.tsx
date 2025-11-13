@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import DashboardLayout from '../components/DashboardLayout';
-import { TrendingUp, Target, Users, Activity, ArrowRight, Lightbulb, Sparkles } from 'lucide-react';
+import { TrendingUp, Target, Users, Activity, ArrowRight, Lightbulb, Sparkles, Globe, BarChart3, Award, TrendingDown, AlertCircle, CheckCircle } from 'lucide-react';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -17,6 +17,10 @@ export default function Dashboard() {
   const [recommendations, setRecommendations] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [metrics, setMetrics] = useState<any>(null);
+  const [platformStats, setPlatformStats] = useState<any[]>([]);
+  const [sourcesStats, setSourcesStats] = useState<any>(null);
+  const [competitorStats, setCompetitorStats] = useState<any[]>([]);
+  const [sentimentTrend, setSentimentTrend] = useState<string>('stable');
 
   useEffect(() => {
     loadDashboardData();
@@ -25,7 +29,7 @@ export default function Dashboard() {
   const loadDashboardData = async () => {
     if (!user) return;
 
-    const [profileResult, promptsResult, executionsResult, recsResult, metricsResult] = await Promise.all([
+    const [profileResult, promptsResult, executionsResult, recsResult, metricsResult, allExecutionsResult, mentionsResult, sentimentResult] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
       supabase.from('prompts').select('id, is_active, text').eq('user_id', user.id),
       supabase
@@ -43,6 +47,9 @@ export default function Dashboard() {
         .order('executed_at', { ascending: false })
         .limit(10),
       supabase.from('aggregated_metrics').select('*').eq('user_id', user.id).eq('time_period', 'all').maybeSingle(),
+      supabase.from('prompt_executions').select('id, platform, sources, executed_at').eq('user_id', user.id).eq('status', 'completed'),
+      supabase.from('brand_mentions').select('*'),
+      supabase.from('sentiment_analysis').select('*').order('created_at', { ascending: false }).limit(10),
     ]);
 
     if (profileResult.data) setProfile(profileResult.data);
@@ -81,6 +88,80 @@ export default function Dashboard() {
     });
 
     setRecommendations(allRecommendations.slice(0, 6));
+
+    // Calculate platform stats
+    const allExecs = allExecutionsResult.data || [];
+    const platformMetrics: Record<string, any> = {};
+
+    allExecs.forEach((exec: any) => {
+      const platform = exec.platform || 'unknown';
+      if (!platformMetrics[platform]) {
+        platformMetrics[platform] = { name: platform, count: 0, hasData: false };
+      }
+      platformMetrics[platform].count += 1;
+      if (exec.sources) platformMetrics[platform].hasData = true;
+    });
+
+    const platformsArray = Object.values(platformMetrics).sort((a: any, b: any) => b.count - a.count);
+    setPlatformStats(platformsArray);
+
+    // Calculate sources stats
+    const allSources: string[] = [];
+    allExecs.forEach((exec: any) => {
+      if (exec.sources) {
+        try {
+          const sources = Array.isArray(exec.sources) ? exec.sources : JSON.parse(exec.sources);
+          allSources.push(...sources);
+        } catch (e) {}
+      }
+    });
+
+    const domainCounts: Record<string, number> = {};
+    allSources.forEach((url: string) => {
+      try {
+        const domain = new URL(url).hostname.replace('www.', '');
+        domainCounts[domain] = (domainCounts[domain] || 0) + 1;
+      } catch (e) {}
+    });
+
+    const topDomains = Object.entries(domainCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([domain, count]) => ({ domain, count }));
+
+    setSourcesStats({
+      totalSources: allSources.length,
+      uniqueDomains: Object.keys(domainCounts).length,
+      topDomains,
+    });
+
+    // Calculate competitor stats
+    const mentions = mentionsResult.data || [];
+    const competitorCounts: Record<string, number> = {};
+    mentions.forEach((m: any) => {
+      if (!m.is_user_brand) {
+        competitorCounts[m.brand_name] = (competitorCounts[m.brand_name] || 0) + m.mention_count;
+      }
+    });
+
+    const topCompetitors = Object.entries(competitorCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([name, count]) => ({ name, count }));
+
+    setCompetitorStats(topCompetitors);
+
+    // Calculate sentiment trend
+    const sentiments = sentimentResult.data || [];
+    if (sentiments.length >= 2) {
+      const recent = parseFloat(sentiments[0]?.positive_percentage || '0');
+      const previous = parseFloat(sentiments[1]?.positive_percentage || '0');
+      const diff = recent - previous;
+      if (diff > 5) setSentimentTrend('improving');
+      else if (diff < -5) setSentimentTrend('declining');
+      else setSentimentTrend('stable');
+    }
+
     setLoading(false);
   };
 
@@ -147,46 +228,164 @@ export default function Dashboard() {
         </div>
 
         {metrics && (
-          <div className="grid md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover-lift">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-medium text-slate-600">Share of Voice</h3>
-                <a href="/analytics" className="text-blue-600 hover:text-blue-700 text-xs font-medium">View →</a>
+          <>
+            <div className="grid md:grid-cols-3 gap-6 mb-8">
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover-lift">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-medium text-slate-600">Share of Voice</h3>
+                  <a href="/analytics" className="text-blue-600 hover:text-blue-700 text-xs font-medium">View →</a>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-4xl font-bold text-blue-600">{metrics.share_of_voice?.toFixed(1) || 0}%</p>
+                </div>
+                <p className="text-sm text-slate-600 mt-2">
+                  {metrics.total_brand_mentions || 0} brand mentions vs {metrics.total_competitor_mentions || 0} competitors
+                </p>
               </div>
-              <div className="flex items-baseline gap-2">
-                <p className="text-4xl font-bold text-blue-600">{metrics.share_of_voice?.toFixed(1) || 0}%</p>
+
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover-lift">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-medium text-slate-600">Sentiment Score</h3>
+                  <a href="/analytics" className="text-blue-600 hover:text-blue-700 text-xs font-medium">View →</a>
+                </div>
+                <div className="flex items-baseline gap-3">
+                  <p className="text-4xl font-bold text-emerald-600">{metrics.avg_positive_sentiment?.toFixed(0) || 0}%</p>
+                  {sentimentTrend === 'improving' && <TrendingUp className="w-6 h-6 text-emerald-500" />}
+                  {sentimentTrend === 'declining' && <TrendingDown className="w-6 h-6 text-red-500" />}
+                  {sentimentTrend === 'stable' && <Activity className="w-6 h-6 text-slate-400" />}
+                </div>
+                <p className="text-sm text-slate-600 mt-2">
+                  {sentimentTrend === 'improving' && 'Trending up'}
+                  {sentimentTrend === 'declining' && 'Needs attention'}
+                  {sentimentTrend === 'stable' && 'Stable performance'}
+                </p>
               </div>
-              <p className="text-sm text-slate-600 mt-2">
-                {metrics.total_brand_mentions || 0} brand mentions vs {metrics.total_competitor_mentions || 0} competitors
-              </p>
+
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover-lift">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-medium text-slate-600">Competitive Rank</h3>
+                  <a href="/competitor-analysis" className="text-blue-600 hover:text-blue-700 text-xs font-medium">View →</a>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-4xl font-bold text-amber-600">#{metrics.competitive_rank || 0}</p>
+                </div>
+                <p className="text-sm text-slate-600 mt-2">
+                  vs {metrics.top_competitor || 'competitors'}
+                </p>
+              </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover-lift">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-medium text-slate-600">Sentiment Score</h3>
-                <a href="/analytics" className="text-blue-600 hover:text-blue-700 text-xs font-medium">View →</a>
+            {/* Platform Performance Overview */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <BarChart3 className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-slate-900">Platform Performance</h2>
+                </div>
+                <a href="/analytics" className="text-blue-600 hover:text-blue-700 text-sm font-medium">View Details →</a>
               </div>
-              <div className="flex items-baseline gap-2">
-                <p className="text-4xl font-bold text-emerald-600">{metrics.avg_positive_sentiment?.toFixed(0) || 0}%</p>
-              </div>
-              <p className="text-sm text-slate-600 mt-2">
-                Positive sentiment across platforms
-              </p>
+              {platformStats.length === 0 ? (
+                <p className="text-slate-500 text-center py-8">No platform data yet. Run analyses to see performance breakdown.</p>
+              ) : (
+                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {platformStats.map((platform) => (
+                    <div key={platform.name} className="p-4 bg-gradient-to-br from-slate-50 to-blue-50 rounded-lg border border-slate-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-semibold text-slate-700 capitalize">{platform.name}</span>
+                        {platform.hasData ? (
+                          <CheckCircle className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-amber-500" />
+                        )}
+                      </div>
+                      <p className="text-2xl font-bold text-slate-900">{platform.count}</p>
+                      <p className="text-xs text-slate-600">analyses</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover-lift">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-medium text-slate-600">Competitive Rank</h3>
-                <a href="/competitor-analysis" className="text-blue-600 hover:text-blue-700 text-xs font-medium">View →</a>
+            {/* Sources Insights */}
+            {sourcesStats && sourcesStats.totalSources > 0 && (
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-emerald-100 rounded-lg">
+                      <Globe className="w-5 h-5 text-emerald-600" />
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-900">Sources Intelligence</h2>
+                  </div>
+                  <a href="/analytics?tab=sources" className="text-blue-600 hover:text-blue-700 text-sm font-medium">View Details →</a>
+                </div>
+                <div className="grid md:grid-cols-3 gap-6 mb-6">
+                  <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
+                    <p className="text-sm text-slate-600 mb-1">Total Citations</p>
+                    <p className="text-3xl font-bold text-blue-600">{sourcesStats.totalSources}</p>
+                  </div>
+                  <div className="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg">
+                    <p className="text-sm text-slate-600 mb-1">Unique Domains</p>
+                    <p className="text-3xl font-bold text-emerald-600">{sourcesStats.uniqueDomains}</p>
+                  </div>
+                  <div className="p-4 bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg">
+                    <p className="text-sm text-slate-600 mb-1">Avg per Domain</p>
+                    <p className="text-3xl font-bold text-amber-600">
+                      {(sourcesStats.totalSources / Math.max(sourcesStats.uniqueDomains, 1)).toFixed(1)}
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-700 mb-3">Top Citing Domains</h3>
+                  <div className="space-y-2">
+                    {sourcesStats.topDomains.map((item: any, index: number) => (
+                      <div key={item.domain} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <span className="flex items-center justify-center w-6 h-6 bg-blue-500 text-white rounded font-bold text-xs">
+                            {index + 1}
+                          </span>
+                          <span className="text-sm font-medium text-slate-900">{item.domain}</span>
+                        </div>
+                        <span className="text-sm font-bold text-slate-700">{item.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-              <div className="flex items-baseline gap-2">
-                <p className="text-4xl font-bold text-amber-600">#{metrics.competitive_rank || 0}</p>
+            )}
+
+            {/* Top Competitors */}
+            {competitorStats.length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-100 rounded-lg">
+                      <Award className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-900">Top Competitors</h2>
+                  </div>
+                  <a href="/competitors" className="text-blue-600 hover:text-blue-700 text-sm font-medium">View All →</a>
+                </div>
+                <div className="space-y-3">
+                  {competitorStats.map((comp, index) => (
+                    <div key={comp.name} className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-amber-50 rounded-lg border border-slate-200">
+                      <div className="flex items-center gap-3">
+                        <span className="flex items-center justify-center w-8 h-8 bg-amber-500 text-white rounded-lg font-bold text-sm">
+                          {index + 1}
+                        </span>
+                        <span className="font-semibold text-slate-900">{comp.name}</span>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-slate-900">{comp.count}</p>
+                        <p className="text-xs text-slate-600">mentions</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <p className="text-sm text-slate-600 mt-2">
-                vs {metrics.top_competitor || 'competitors'}
-              </p>
-            </div>
-          </div>
+            )}
+          </>
         )}
 
         {recommendations.length > 0 && (
