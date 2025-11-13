@@ -370,44 +370,70 @@ export default function ExecutionDetail() {
             {sources.length > 0 && (
               <div className="grid md:grid-cols-2 gap-6">
                 {/* Domain Analysis */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                  <h2 className="text-xl font-bold text-slate-900 mb-6">Top Domains</h2>
-                  <div className="space-y-3">
-                    {sortedDomains.slice(0, 10).map(([domain, count]) => (
-                      <div key={domain} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl shadow-md border border-blue-200 p-6 hover:shadow-lg transition-shadow">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2.5 bg-blue-500 rounded-lg shadow-md">
+                      <Globe className="w-5 h-5 text-white" />
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-900">Top Domains</h2>
+                  </div>
+                  <div className="space-y-2.5">
+                    {sortedDomains.slice(0, 10).map(([domain, count], index) => (
+                      <div key={domain} className="flex items-center justify-between p-3 bg-white border border-blue-100 rounded-lg hover:shadow-md hover:border-blue-300 transition-all">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <span className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded font-bold text-xs flex-shrink-0 shadow-sm">
+                            {index + 1}
+                          </span>
                           <span className="font-medium text-slate-900 truncate">{domain}</span>
                         </div>
-                        <span className="ml-3 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-bold flex-shrink-0">
+                        <span className="ml-3 px-3 py-1.5 bg-blue-500 text-white rounded-full text-xs font-bold flex-shrink-0 shadow-sm">
                           {count}
                         </span>
                       </div>
                     ))}
                   </div>
-                  <div className="mt-4 pt-4 border-t border-slate-200">
-                    <p className="text-sm text-slate-600">
-                      <span className="font-semibold">{sortedDomains.length}</span> unique domains • <span className="font-semibold">{sources.length}</span> total sources
-                    </p>
+                  <div className="mt-5 pt-4 border-t border-blue-200 bg-white/50 -mx-6 px-6 py-4 rounded-b-lg">
+                    <div className="flex items-center justify-between text-sm">
+                      <div>
+                        <p className="text-slate-600">
+                          <span className="font-bold text-blue-600">{sortedDomains.length}</span> unique domains
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-slate-600">
+                          <span className="font-bold text-blue-600">{sources.length}</span> total sources
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
                 {/* All Sources */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                  <h2 className="text-xl font-bold text-slate-900 mb-6">All Sources</h2>
-                  <div className="space-y-2 max-h-80 overflow-y-auto">
+                <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl shadow-md border border-emerald-200 p-6 hover:shadow-lg transition-shadow">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2.5 bg-emerald-500 rounded-lg shadow-md">
+                      <Link className="w-5 h-5 text-white" />
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-900">All Sources</h2>
+                    <span className="ml-auto px-2.5 py-1 bg-emerald-500 text-white rounded-full text-xs font-bold shadow-sm">
+                      {sources.length}
+                    </span>
+                  </div>
+                  <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
                     {sources.map((url, index) => (
                       <a
                         key={index}
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block p-3 bg-slate-50 border border-slate-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                        className="flex items-start gap-3 p-3 bg-white border border-emerald-100 rounded-lg hover:bg-emerald-50 hover:border-emerald-300 hover:shadow-md transition-all group"
                       >
-                        <div className="flex items-start gap-2">
-                          <span className="text-xs font-bold text-slate-400 flex-shrink-0 mt-0.5">{index + 1}</span>
-                          <span className="text-sm text-blue-600 hover:text-blue-700 break-all">{url}</span>
-                        </div>
+                        <span className="flex items-center justify-center w-6 h-6 bg-emerald-500 text-white rounded font-bold text-xs flex-shrink-0 shadow-sm group-hover:bg-emerald-600 transition-colors">
+                          {index + 1}
+                        </span>
+                        <span className="text-sm text-emerald-700 hover:text-emerald-800 break-all font-medium leading-relaxed mt-0.5">
+                          {url}
+                        </span>
                       </a>
                     ))}
                   </div>

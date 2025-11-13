@@ -829,13 +829,15 @@ export default function Prompts() {
 
                             const mentionedPlatforms: string[] = [];
 
-                            completedExecs.forEach((exec: any) => {
+                            // Check both completed and processing execs for mentions
+                            [...completedExecs, ...processingExecs].forEach((exec: any) => {
                               if (exec.ai_response && profile?.brand_name) {
                                 try {
                                   const response = typeof exec.ai_response === 'string'
                                     ? JSON.parse(exec.ai_response)
                                     : exec.ai_response;
 
+                                  // Check brandAndCompetitorMentions
                                   if (response?.brandAndCompetitorMentions) {
                                     const mentions = response.brandAndCompetitorMentions;
                                     if ((mentions[profile.brand_name] || 0) > 0) {
