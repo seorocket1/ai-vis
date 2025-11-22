@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import DashboardLayout from '../components/DashboardLayout';
-import { ArrowLeft, CheckCircle, Clock, AlertCircle, TrendingUp, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Clock, AlertCircle, TrendingUp, AlertTriangle, Globe, Link } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
