@@ -7,6 +7,65 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+async function resolveVertexAIUrl(url: string): Promise<string> {
+  if (!url.includes('vertexaisearch.cloud.google.com/grounding-api-redirect')) {
+    return url;
+  }
+
+  try {
+    console.log('[resolveVertexAIUrl] Resolving Vertex AI redirect URL:', url.substring(0, 80) + '...');
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(url, {
+      method: 'HEAD',
+      redirect: 'follow',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    const resolvedUrl = response.url;
+    console.log('[resolveVertexAIUrl] Resolved to:', resolvedUrl);
+    return resolvedUrl;
+  } catch (error: any) {
+    console.error('[resolveVertexAIUrl] Failed to resolve URL:', error.message);
+    return url;
+  }
+}
+
+async function resolveSourceUrls(sources: any): Promise<any> {
+  if (!sources) return sources;
+
+  try {
+    if (Array.isArray(sources)) {
+      const resolved = await Promise.all(
+        sources.map(async (source) => {
+          if (source?.web?.uri) {
+            const resolvedUri = await resolveVertexAIUrl(source.web.uri);
+            return {
+              ...source,
+              web: {
+                ...source.web,
+                uri: resolvedUri,
+              },
+            };
+          }
+          return source;
+        })
+      );
+      console.log('[resolveSourceUrls] Resolved', resolved.length, 'source URLs');
+      return resolved;
+    }
+  } catch (error) {
+    console.error('[resolveSourceUrls] Error resolving URLs:', error);
+    return sources;
+  }
+
+  return sources;
+}
+
 async function processSingleResult(supabase: any, payload: any) {
   let executionId = payload.executionId;
   let brandAndCompetitorMentions = payload.brandAndCompetitorMentions;
@@ -45,6 +104,7 @@ async function processSingleResult(supabase: any, payload: any) {
   if (payload.Sources) {
     try {
       sources = typeof payload.Sources === 'string' ? JSON.parse(payload.Sources) : payload.Sources;
+      sources = await resolveSourceUrls(sources);
     } catch (e) {
       console.error('[processSingleResult] Error parsing Sources:', e);
       sources = payload.Sources;
@@ -436,7 +496,7 @@ Deno.serve(async (req: Request) => {
       }
     );
   } catch (error: any) {
-    console.error('[n8n-callback] ========== ERROR ==========');
+    console.log('[n8n-callback] ========== ERROR ==========');
     console.error('[n8n-callback] Error:', error);
     console.error('[n8n-callback] Stack:', error.stack);
     return new Response(
