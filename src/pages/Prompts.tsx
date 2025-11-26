@@ -68,24 +68,39 @@ export default function Prompts() {
       supabase.from('prompt_executions').select('id').eq('user_id', user.id).eq('status', 'completed')
     ]);
 
-    const promptsWithExecution = (promptsResult.data || []).map(prompt => {
+    const promptsWithExecution = await Promise.all((promptsResult.data || []).map(async prompt => {
       const executions = prompt.prompt_executions || [];
       const completedExecs = executions.filter((e: any) => e.status === 'completed');
       const latestExecution = completedExecs.length > 0 ? completedExecs[completedExecs.length - 1] : null;
 
-      // Debug logging for execution status
-      if (executions.length > 0) {
-        console.log(`[loadData] Prompt "${prompt.text?.substring(0, 30)}" has ${executions.length} executions:`,
-          executions.map((e: any) => ({ id: e.id, status: e.status, has_response: !!e.ai_response }))
-        );
+      const executionIds = completedExecs.map((e: any) => e.id);
+      let brandMentionsMap: Record<string, any[]> = {};
+
+      if (executionIds.length > 0) {
+        const { data: mentions } = await supabase
+          .from('brand_mentions')
+          .select('*, prompt_executions!inner(platform)')
+          .in('execution_id', executionIds)
+          .eq('is_user_brand', true);
+
+        if (mentions) {
+          mentions.forEach(m => {
+            const platform = (m as any).prompt_executions?.platform || 'gemini';
+            if (!brandMentionsMap[platform]) {
+              brandMentionsMap[platform] = [];
+            }
+            brandMentionsMap[platform].push(m);
+          });
+        }
       }
 
       return {
         ...prompt,
         latestExecution,
-        allExecutions: executions
+        allExecutions: executions,
+        brandMentionsByPlatform: brandMentionsMap
       };
-    });
+    }));
 
     setPrompts(promptsWithExecution);
     setProfile(profileResult.data);
@@ -822,40 +837,10 @@ export default function Prompts() {
                               'ai-overview': 'AI Overview'
                             };
 
-                            const mentionedPlatforms: string[] = [];
-
-                            completedExecs.forEach((exec: any) => {
-                              if (exec.ai_response && profile?.brand_name) {
-                                try {
-                                  const response = typeof exec.ai_response === 'string'
-                                    ? JSON.parse(exec.ai_response)
-                                    : exec.ai_response;
-
-                                  const brandNameLower = profile.brand_name.toLowerCase();
-
-                                  if (response?.brandAndCompetitorMentions) {
-                                    const mentions = response.brandAndCompetitorMentions;
-                                    const hasMention = Object.keys(mentions).some(brandKey => {
-                                      const count = mentions[brandKey];
-                                      const brandKeyLower = brandKey.toLowerCase();
-                                      return (count > 0) && (
-                                        brandKeyLower.includes(brandNameLower) ||
-                                        brandNameLower.includes(brandKeyLower)
-                                      );
-                                    });
-
-                                    if (hasMention) {
-                                      const platform = exec.platform || 'gemini';
-                                      if (!mentionedPlatforms.includes(platform)) {
-                                        mentionedPlatforms.push(platform);
-                                      }
-                                    }
-                                  }
-                                } catch (e) {
-                                  console.error('Error parsing AI response:', e);
-                                }
-                              }
-                            });
+                            const brandMentionsMap = (prompt as any).brandMentionsByPlatform || {};
+                            const mentionedPlatforms = Object.keys(brandMentionsMap).filter(
+                              platform => brandMentionsMap[platform].length > 0
+                            );
 
                             if (mentionedPlatforms.length === 0) {
                               return (
