@@ -158,7 +158,16 @@ export default function ExecutionDetail() {
   let sources: string[] = [];
   if (currentExec?.sources) {
     try {
-      sources = Array.isArray(currentExec.sources) ? currentExec.sources : JSON.parse(currentExec.sources);
+      const parsedSources = Array.isArray(currentExec.sources) ? currentExec.sources : JSON.parse(currentExec.sources);
+      sources = parsedSources.map((source: any) => {
+        if (typeof source === 'string') {
+          return source;
+        }
+        if (source?.web?.uri) {
+          return source.web.uri;
+        }
+        return null;
+      }).filter(Boolean);
     } catch {
       sources = [];
     }
