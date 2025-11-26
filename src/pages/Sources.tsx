@@ -42,38 +42,61 @@ export default function Sources() {
         .eq('status', 'completed')
         .not('sources', 'is', null);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
 
       const domainMap = new Map<string, SourceData>();
       let totalSourcesCount = 0;
 
-      executions?.forEach((exec) => {
-        if (Array.isArray(exec.sources)) {
-          exec.sources.forEach((url: string) => {
-            totalSourcesCount++;
-            const domain = extractDomain(url);
-            const platform = exec.platform || 'unknown';
+      if (executions) {
+        executions.forEach((exec) => {
+          try {
+            // Handle sources as either JSON string or array
+            let sourcesList: string[] = [];
+            if (typeof exec.sources === 'string') {
+              try {
+                sourcesList = JSON.parse(exec.sources);
+              } catch {
+                sourcesList = [];
+              }
+            } else if (Array.isArray(exec.sources)) {
+              sourcesList = exec.sources;
+            }
 
-            if (domainMap.has(domain)) {
-              const existing = domainMap.get(domain)!;
-              existing.count++;
-              if (!existing.urls.includes(url)) {
-                existing.urls.push(url);
-              }
-              if (!existing.platforms.includes(platform)) {
-                existing.platforms.push(platform);
-              }
-            } else {
-              domainMap.set(domain, {
-                domain,
-                count: 1,
-                urls: [url],
-                platforms: [platform],
+            if (Array.isArray(sourcesList) && sourcesList.length > 0) {
+              sourcesList.forEach((url: string) => {
+                if (url && typeof url === 'string') {
+                  totalSourcesCount++;
+                  const domain = extractDomain(url);
+                  const platform = exec.platform || 'unknown';
+
+                  if (domainMap.has(domain)) {
+                    const existing = domainMap.get(domain)!;
+                    existing.count++;
+                    if (!existing.urls.includes(url)) {
+                      existing.urls.push(url);
+                    }
+                    if (!existing.platforms.includes(platform)) {
+                      existing.platforms.push(platform);
+                    }
+                  } else {
+                    domainMap.set(domain, {
+                      domain,
+                      count: 1,
+                      urls: [url],
+                      platforms: [platform],
+                    });
+                  }
+                }
               });
             }
-          });
-        }
-      });
+          } catch (err) {
+            console.error('Error processing execution:', exec, err);
+          }
+        });
+      }
 
       const sortedSources = Array.from(domainMap.values()).sort((a, b) => b.count - a.count);
 
