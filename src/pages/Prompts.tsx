@@ -829,18 +829,27 @@ export default function Prompts() {
 
                             const mentionedPlatforms: string[] = [];
 
-                            // Check both completed and processing execs for mentions
-                            [...completedExecs, ...processingExecs].forEach((exec: any) => {
+                            completedExecs.forEach((exec: any) => {
                               if (exec.ai_response && profile?.brand_name) {
                                 try {
                                   const response = typeof exec.ai_response === 'string'
                                     ? JSON.parse(exec.ai_response)
                                     : exec.ai_response;
 
-                                  // Check brandAndCompetitorMentions
+                                  const brandNameLower = profile.brand_name.toLowerCase();
+
                                   if (response?.brandAndCompetitorMentions) {
                                     const mentions = response.brandAndCompetitorMentions;
-                                    if ((mentions[profile.brand_name] || 0) > 0) {
+                                    const hasMention = Object.keys(mentions).some(brandKey => {
+                                      const count = mentions[brandKey];
+                                      const brandKeyLower = brandKey.toLowerCase();
+                                      return (count > 0) && (
+                                        brandKeyLower.includes(brandNameLower) ||
+                                        brandNameLower.includes(brandKeyLower)
+                                      );
+                                    });
+
+                                    if (hasMention) {
                                       const platform = exec.platform || 'gemini';
                                       if (!mentionedPlatforms.includes(platform)) {
                                         mentionedPlatforms.push(platform);
@@ -848,7 +857,7 @@ export default function Prompts() {
                                     }
                                   }
                                 } catch (e) {
-                                  // Skip invalid JSON
+                                  console.error('Error parsing AI response:', e);
                                 }
                               }
                             });
