@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import DashboardLayout from '../components/DashboardLayout';
-import { TrendingUp, TrendingDown, Users, Target, BarChart3, Trophy, AlertCircle, Plus, Trash2, ExternalLink } from 'lucide-react';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
+import { TrendingUp, TrendingDown, Users, Target, BarChart3, Trophy, AlertCircle, Plus, Trash2, ExternalLink, Calendar } from 'lucide-react';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface Competitor {
   id: string;
@@ -11,6 +11,9 @@ interface Competitor {
   website_url: string | null;
   created_at: string;
 }
+
+type DateRange = 'today' | '3days' | '7days' | '14days' | '30days' | 'all';
+type MetricType = 'mentions' | 'shareOfVoice' | 'appearances' | 'avgPerAnalysis';
 
 export default function CompetitorAnalysis() {
   const { user } = useAuth();
@@ -22,17 +25,40 @@ export default function CompetitorAnalysis() {
   const [showModal, setShowModal] = useState(false);
   const [newName, setNewName] = useState('');
   const [newWebsite, setNewWebsite] = useState('');
+  const [dateRange, setDateRange] = useState<DateRange>('all');
+  const [selectedMetric, setSelectedMetric] = useState<MetricType>('mentions');
 
   useEffect(() => {
     loadData();
-  }, [user]);
+  }, [user, dateRange]);
+
+  const getDateFilter = (range: DateRange): Date | null => {
+    if (range === 'all') return null;
+
+    const now = new Date();
+    const daysMap = {
+      'today': 1,
+      '3days': 3,
+      '7days': 7,
+      '14days': 14,
+      '30days': 30,
+    };
+
+    const days = daysMap[range];
+    const cutoffDate = new Date(now.getTime() - (days * 24 * 60 * 60 * 1000));
+    return cutoffDate;
+  };
 
   const loadData = async () => {
     if (!user) return;
 
+    const cutoffDate = getDateFilter(dateRange);
+
     const [profileResult, executionsResult, metricsResult, competitorsResult] = await Promise.all([
       supabase.from('profiles').select('brand_name').eq('id', user.id).maybeSingle(),
-      supabase.from('prompt_executions').select('id').eq('user_id', user.id).eq('status', 'completed'),
+      cutoffDate
+        ? supabase.from('prompt_executions').select('id, executed_at').eq('user_id', user.id).eq('status', 'completed').gte('executed_at', cutoffDate.toISOString())
+        : supabase.from('prompt_executions').select('id, executed_at').eq('user_id', user.id).eq('status', 'completed'),
       supabase.from('aggregated_metrics').select('*').eq('user_id', user.id).eq('time_period', 'all').maybeSingle(),
       supabase.from('competitors').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
     ]);
@@ -84,13 +110,13 @@ export default function CompetitorAnalysis() {
       name: userBrand,
       mentionCount: brandMentionCount,
       appearances: mentions.filter(m => m.is_user_brand).length,
-      avgMentionsPerAnalysis: totalExecutions > 0 ? (brandMentionCount / totalExecutions).toFixed(1) : 0,
+      avgMentionsPerAnalysis: totalExecutions > 0 ? parseFloat((brandMentionCount / totalExecutions).toFixed(2)) : 0,
       sentiment: avgBrandSentiment,
     });
 
     const competitors = Object.values(competitorGroups).map(comp => ({
       ...comp,
-      avgMentionsPerAnalysis: totalExecutions > 0 ? (comp.mentionCount / totalExecutions).toFixed(1) : 0,
+      avgMentionsPerAnalysis: totalExecutions > 0 ? parseFloat((comp.mentionCount / totalExecutions).toFixed(2)) : 0,
       sentiment: avgBrandSentiment,
     })).sort((a, b) => b.mentionCount - a.mentionCount);
 
@@ -137,17 +163,59 @@ export default function CompetitorAnalysis() {
   const sortedBrands = allBrands.sort((a, b) => b.mentionCount - a.mentionCount);
   const brandRank = sortedBrands.findIndex(b => b.isUserBrand) + 1;
 
-  const comparisonChartData = sortedBrands.slice(0, 6).map(brand => ({
-    name: brand.name.length > 15 ? brand.name.substring(0, 15) + '...' : brand.name,
-    mentions: brand.mentionCount,
-    appearances: brand.appearances,
+  const getMetricValue = (brand: any) => {
+    const totalMentionsForCalc = (brandData?.mentionCount || 0) + competitorData.reduce((sum, c) => sum + c.mentionCount, 0);
+    switch (selectedMetric) {
+      case 'mentions':
+        return brand.mentionCount;
+      case 'shareOfVoice':
+        return totalMentionsForCalc > 0 ? parseFloat(((brand.mentionCount / totalMentionsForCalc) * 100).toFixed(1)) : 0;
+      case 'appearances':
+        return brand.appearances;
+      case 'avgPerAnalysis':
+        return brand.avgMentionsPerAnalysis;
+      default:
+        return brand.mentionCount;
+    }
+  };
+
+  const getMetricLabel = () => {
+    switch (selectedMetric) {
+      case 'mentions':
+        return 'Total Mentions';
+      case 'shareOfVoice':
+        return 'Share of Voice (%)';
+      case 'appearances':
+        return 'Appearances';
+      case 'avgPerAnalysis':
+        return 'Avg per Analysis';
+      default:
+        return 'Total Mentions';
+    }
+  };
+
+  const unifiedChartData = sortedBrands.slice(0, 6).map(brand => ({
+    name: brand.name.length > 12 ? brand.name.substring(0, 12) + '...' : brand.name,
+    fullName: brand.name,
+    value: getMetricValue(brand),
     isUser: brand.isUserBrand || false,
   }));
 
-  const shareOfVoiceData = sortedBrands.slice(0, 6).map(brand => ({
-    name: brand.name.length > 15 ? brand.name.substring(0, 15) + '...' : brand.name,
-    shareOfVoice: totalMentions > 0 ? parseFloat(((brand.mentionCount / totalMentions) * 100).toFixed(1)) : 0,
-  }));
+  const dateRangeOptions = [
+    { value: 'today', label: 'Today' },
+    { value: '3days', label: 'Last 3 Days' },
+    { value: '7days', label: 'Last 7 Days' },
+    { value: '14days', label: 'Last 14 Days' },
+    { value: '30days', label: 'Last 30 Days' },
+    { value: 'all', label: 'All Time' },
+  ];
+
+  const metricOptions = [
+    { value: 'mentions', label: 'Total Mentions' },
+    { value: 'shareOfVoice', label: 'Share of Voice' },
+    { value: 'appearances', label: 'Appearances' },
+    { value: 'avgPerAnalysis', label: 'Avg per Analysis' },
+  ];
 
   return (
     <DashboardLayout currentPage="competitor-analysis">
@@ -231,33 +299,70 @@ export default function CompetitorAnalysis() {
         )}
 
         {sortedBrands.length > 0 && (
-          <div className="grid md:grid-cols-2 gap-6 mb-8">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-              <h3 className="text-lg font-bold text-slate-900 mb-4">Brand Mentions Comparison</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={comparisonChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="name" stroke="#64748b" />
-                  <YAxis stroke="#64748b" />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="mentions" fill="#3b82f6" name="Total Mentions" />
-                </BarChart>
-              </ResponsiveContainer>
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Performance Comparison</h3>
+                <p className="text-sm text-slate-600 mt-1">Compare brands across different metrics</p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <select
+                    value={dateRange}
+                    onChange={(e) => setDateRange(e.target.value as DateRange)}
+                    className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-medium appearance-none bg-white cursor-pointer"
+                  >
+                    {dateRangeOptions.map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="relative">
+                  <BarChart3 className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <select
+                    value={selectedMetric}
+                    onChange={(e) => setSelectedMetric(e.target.value as MetricType)}
+                    className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-medium appearance-none bg-white cursor-pointer"
+                  >
+                    {metricOptions.map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-              <h3 className="text-lg font-bold text-slate-900 mb-4">Share of Voice Distribution</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={shareOfVoiceData} layout="horizontal">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis type="number" stroke="#64748b" unit="%" />
-                  <YAxis type="category" dataKey="name" stroke="#64748b" width={100} />
-                  <Tooltip />
-                  <Bar dataKey="shareOfVoice" fill="#10b981" name="Share %" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart data={unifiedChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="name" stroke="#64748b" />
+                <YAxis stroke="#64748b" />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0].payload;
+                      return (
+                        <div className="bg-white p-3 rounded-lg shadow-lg border border-slate-200">
+                          <p className="font-semibold text-slate-900">{data.fullName}</p>
+                          <p className="text-sm text-slate-600">
+                            {getMetricLabel()}: <span className="font-medium text-slate-900">{data.value}</span>
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Legend />
+                <Bar
+                  dataKey="value"
+                  name={getMetricLabel()}
+                  fill="#3b82f6"
+                  radius={[8, 8, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         )}
 
@@ -324,10 +429,10 @@ export default function CompetitorAnalysis() {
                           <div className="w-24 bg-slate-200 rounded-full h-2">
                             <div
                               className={`h-2 rounded-full ${isUserBrand ? 'bg-blue-600' : 'bg-emerald-500'}`}
-                              style={{ width: `${sov}%` }}
+                              style={{ width: `${Math.min(parseFloat(sov), 100)}%` }}
                             />
                           </div>
-                          <span className="text-sm font-medium text-slate-900">{sov}%</span>
+                          <span className="text-sm font-medium text-slate-900 min-w-[3rem]">{sov}%</span>
                         </div>
                       </td>
                       <td className="py-4 px-4 text-center">
