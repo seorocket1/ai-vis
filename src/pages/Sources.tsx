@@ -52,6 +52,7 @@ export default function Sources() {
           exec.sources.forEach((url: string) => {
             totalSourcesCount++;
             const domain = extractDomain(url);
+            const platform = exec.platform || 'unknown';
 
             if (domainMap.has(domain)) {
               const existing = domainMap.get(domain)!;
@@ -59,15 +60,15 @@ export default function Sources() {
               if (!existing.urls.includes(url)) {
                 existing.urls.push(url);
               }
-              if (!existing.platforms.includes(exec.platform)) {
-                existing.platforms.push(exec.platform);
+              if (!existing.platforms.includes(platform)) {
+                existing.platforms.push(platform);
               }
             } else {
               domainMap.set(domain, {
                 domain,
                 count: 1,
                 urls: [url],
-                platforms: [exec.platform],
+                platforms: [platform],
               });
             }
           });
