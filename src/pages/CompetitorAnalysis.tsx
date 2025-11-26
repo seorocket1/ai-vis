@@ -2,7 +2,15 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import DashboardLayout from '../components/DashboardLayout';
-import { TrendingUp, TrendingDown, Users, Target, BarChart3, Trophy, AlertCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Users, Target, BarChart3, Trophy, AlertCircle, Plus, Trash2, ExternalLink } from 'lucide-react';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
+
+interface Competitor {
+  id: string;
+  name: string;
+  website_url: string | null;
+  created_at: string;
+}
 
 export default function CompetitorAnalysis() {
   const { user } = useAuth();
@@ -10,6 +18,10 @@ export default function CompetitorAnalysis() {
   const [brandData, setBrandData] = useState<any>(null);
   const [competitorData, setCompetitorData] = useState<any[]>([]);
   const [metrics, setMetrics] = useState<any>(null);
+  const [competitors, setCompetitors] = useState<Competitor[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newWebsite, setNewWebsite] = useState('');
 
   useEffect(() => {
     loadData();
@@ -18,21 +30,19 @@ export default function CompetitorAnalysis() {
   const loadData = async () => {
     if (!user) return;
 
-    console.log('[CompetitorAnalysis] Loading data for user:', user.id);
+    const [profileResult, executionsResult, metricsResult, competitorsResult] = await Promise.all([
+      supabase.from('profiles').select('brand_name').eq('id', user.id).maybeSingle(),
+      supabase.from('prompt_executions').select('id').eq('user_id', user.id).eq('status', 'completed'),
+      supabase.from('aggregated_metrics').select('*').eq('user_id', user.id).eq('time_period', 'all').maybeSingle(),
+      supabase.from('competitors').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+    ]);
 
-    const profileResult = await supabase.from('profiles').select('brand_name').eq('id', user.id).maybeSingle();
-    const executionsResult = await supabase.from('prompt_executions').select('id').eq('user_id', user.id).eq('status', 'completed');
-    const metricsResult = await supabase.from('aggregated_metrics').select('*').eq('user_id', user.id).eq('time_period', 'all').maybeSingle();
-
-    console.log('[CompetitorAnalysis] Profile:', profileResult.data);
-    console.log('[CompetitorAnalysis] Executions:', executionsResult.data?.length);
-    console.log('[CompetitorAnalysis] Metrics:', metricsResult.data);
+    setCompetitors(competitorsResult.data || []);
 
     const userBrand = profileResult.data?.brand_name || '';
     const totalExecutions = executionsResult.data?.length || 0;
 
     if (totalExecutions === 0) {
-      console.log('[CompetitorAnalysis] No executions found');
       setLoading(false);
       return;
     }
@@ -43,9 +53,6 @@ export default function CompetitorAnalysis() {
       supabase.from('brand_mentions').select('*').in('execution_id', executionIds),
       supabase.from('sentiment_analysis').select('*').in('execution_id', executionIds),
     ]);
-
-    console.log('[CompetitorAnalysis] Mentions:', mentionsResult.data?.length);
-    console.log('[CompetitorAnalysis] Sentiments:', sentimentsResult.data?.length);
 
     const mentions = mentionsResult.data || [];
     const sentiments = sentimentsResult.data || [];
@@ -91,6 +98,28 @@ export default function CompetitorAnalysis() {
     setLoading(false);
   };
 
+  const handleAddCompetitor = async () => {
+    if (!user || !newName.trim()) return;
+
+    await supabase.from('competitors').insert({
+      user_id: user.id,
+      name: newName.trim(),
+      website_url: newWebsite.trim() || null,
+    });
+
+    setShowModal(false);
+    setNewName('');
+    setNewWebsite('');
+    loadData();
+  };
+
+  const handleDeleteCompetitor = async (id: string) => {
+    if (confirm('Are you sure you want to remove this competitor?')) {
+      await supabase.from('competitors').delete().eq('id', id);
+      loadData();
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout currentPage="competitor-analysis">
@@ -108,12 +137,26 @@ export default function CompetitorAnalysis() {
   const sortedBrands = allBrands.sort((a, b) => b.mentionCount - a.mentionCount);
   const brandRank = sortedBrands.findIndex(b => b.isUserBrand) + 1;
 
+  const comparisonChartData = sortedBrands.slice(0, 6).map(brand => ({
+    name: brand.name.length > 15 ? brand.name.substring(0, 15) + '...' : brand.name,
+    mentions: brand.mentionCount,
+    appearances: brand.appearances,
+    isUser: brand.isUserBrand || false,
+  }));
+
+  const shareOfVoiceData = sortedBrands.slice(0, 6).map(brand => ({
+    name: brand.name.length > 15 ? brand.name.substring(0, 15) + '...' : brand.name,
+    shareOfVoice: totalMentions > 0 ? parseFloat(((brand.mentionCount / totalMentions) * 100).toFixed(1)) : 0,
+  }));
+
   return (
     <DashboardLayout currentPage="competitor-analysis">
       <div className="max-w-7xl mx-auto animate-fade-in">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Competitive Intelligence</h1>
-          <p className="text-slate-600">Comprehensive brand vs. competitor analysis across AI platforms</p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">Competitive Intelligence</h1>
+            <p className="text-slate-600">Comprehensive brand vs. competitor analysis across AI platforms</p>
+          </div>
         </div>
 
         <div className="grid md:grid-cols-4 gap-6 mb-8">
@@ -183,6 +226,37 @@ export default function CompetitorAnalysis() {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {sortedBrands.length > 0 && (
+          <div className="grid md:grid-cols-2 gap-6 mb-8">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <h3 className="text-lg font-bold text-slate-900 mb-4">Brand Mentions Comparison</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={comparisonChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="name" stroke="#64748b" />
+                  <YAxis stroke="#64748b" />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="mentions" fill="#3b82f6" name="Total Mentions" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <h3 className="text-lg font-bold text-slate-900 mb-4">Share of Voice Distribution</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={shareOfVoiceData} layout="horizontal">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis type="number" stroke="#64748b" unit="%" />
+                  <YAxis type="category" dataKey="name" stroke="#64748b" width={100} />
+                  <Tooltip />
+                  <Bar dataKey="shareOfVoice" fill="#10b981" name="Share %" />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </div>
         )}
@@ -295,6 +369,74 @@ export default function CompetitorAnalysis() {
           )}
         </div>
 
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Manage Competitors</h2>
+              <p className="text-sm text-slate-600 mt-1">Add or remove competitors to track in your analysis</p>
+            </div>
+            <button
+              onClick={() => setShowModal(true)}
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-medium"
+            >
+              <Plus className="w-5 h-5" />
+              Add Competitor
+            </button>
+          </div>
+
+          {competitors.length === 0 ? (
+            <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="w-8 h-8 text-blue-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-slate-900 mb-2">No competitors tracked</h3>
+              <p className="text-slate-600 mb-6">Add competitors to monitor their brand visibility</p>
+              <button
+                onClick={() => setShowModal(true)}
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Add First Competitor
+              </button>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {competitors.map((competitor) => (
+                <div
+                  key={competitor.id}
+                  className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-all"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-slate-900 mb-2">{competitor.name}</h3>
+                      {competitor.website_url && (
+                        <a
+                          href={competitor.website_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-700 text-sm flex items-center gap-1 transition-colors"
+                        >
+                          Visit website
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleDeleteCompetitor(competitor.id)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Remove"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Added {new Date(competitor.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {brandData && metrics && (
           <div className="grid md:grid-cols-2 gap-6">
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -362,6 +504,62 @@ export default function CompetitorAnalysis() {
                       Track {competitorData.length} competitors regularly to understand market dynamics
                     </p>
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+              <h2 className="text-2xl font-bold text-slate-900 mb-6">Add Competitor</h2>
+
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Competitor Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="e.g., CompanyName"
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Website URL (Optional)
+                  </label>
+                  <input
+                    type="url"
+                    value={newWebsite}
+                    onChange={(e) => setNewWebsite(e.target.value)}
+                    placeholder="https://competitor.com"
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowModal(false);
+                      setNewName('');
+                      setNewWebsite('');
+                    }}
+                    className="flex-1 bg-slate-200 text-slate-700 py-3 rounded-lg font-medium hover:bg-slate-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAddCompetitor}
+                    disabled={!newName.trim()}
+                    className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Add
+                  </button>
                 </div>
               </div>
             </div>

@@ -9,7 +9,6 @@ import Prompts from './pages/Prompts';
 import TriggerPrompt from './pages/TriggerPrompt';
 import ExecutionDetail from './pages/ExecutionDetail';
 import Analytics from './pages/Analytics';
-import Competitors from './pages/Competitors';
 import CompetitorAnalysis from './pages/CompetitorAnalysis';
 import Settings from './pages/Settings';
 import Admin from './pages/Admin';
@@ -116,14 +115,6 @@ export default function Router() {
     return (
       <ProtectedRoute>
         <Analytics />
-      </ProtectedRoute>
-    );
-  }
-
-  if (currentPath === '/competitors') {
-    return (
-      <ProtectedRoute>
-        <Competitors />
       </ProtectedRoute>
     );
   }

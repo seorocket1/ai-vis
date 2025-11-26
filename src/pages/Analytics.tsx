@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import DashboardLayout from '../components/DashboardLayout';
 import { TrendingUp, TrendingDown, Activity, Target, BarChart3, Users, Globe, Link } from 'lucide-react';
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 
 export default function Analytics() {
   const { user } = useAuth();
@@ -14,6 +15,7 @@ export default function Analytics() {
   const [mentions, setMentions] = useState<any[]>([]);
   const [sentiments, setSentiments] = useState<any[]>([]);
   const [sourcesAnalytics, setSourcesAnalytics] = useState<any>(null);
+  const [trendData, setTrendData] = useState<any[]>([]);
 
   useEffect(() => {
     loadAnalytics();
@@ -22,17 +24,8 @@ export default function Analytics() {
   const loadAnalytics = async () => {
     if (!user) return;
 
-    console.log('[Analytics] Loading analytics for user:', user.id);
-
     const metricsResult = await supabase.from('aggregated_metrics').select('*').eq('user_id', user.id).eq('time_period', 'all').maybeSingle();
     const executionsResult = await supabase.from('prompt_executions').select('*').eq('user_id', user.id).eq('status', 'completed').order('executed_at', { ascending: false });
-
-    console.log('[Analytics] Metrics result:', metricsResult);
-    console.log('[Analytics] Executions count:', executionsResult.data?.length);
-
-    if (metricsResult.error) {
-      console.error('[Analytics] Error loading metrics:', metricsResult.error);
-    }
 
     const executions = executionsResult.data || [];
     setMetrics(metricsResult.data);
@@ -49,9 +42,6 @@ export default function Analytics() {
       supabase.from('brand_mentions').select('*').in('execution_id', executionIds),
       supabase.from('sentiment_analysis').select('*').in('execution_id', executionIds),
     ]);
-
-    console.log('[Analytics] Mentions count:', mentionsResult.data?.length);
-    console.log('[Analytics] Sentiments count:', sentimentsResult.data?.length);
 
     const mentions = mentionsResult.data || [];
     const sentiments = sentimentsResult.data || [];
@@ -99,14 +89,53 @@ export default function Analytics() {
     const platformData = Object.values(platformMetrics).map((p: any) => ({
       name: p.name.charAt(0).toUpperCase() + p.name.slice(1),
       visibility: p.executions > 0 ? Math.round((p.mentions / p.executions) * 10) : 0,
-      sentiment: p.sentimentCount > 0 ? (p.totalPositive / p.sentimentCount / 10) : 0,
+      sentiment: p.sentimentCount > 0 ? Math.round(p.totalPositive / p.sentimentCount) : 0,
       mentions: p.mentions,
-      change: 0,
+      executions: p.executions,
+      avgSentiment: p.sentimentCount > 0 ? (p.totalPositive / p.sentimentCount).toFixed(1) : 0,
     }));
 
     setPlatforms(platformData);
 
-    // Analyze sources
+    const executionsByDate = executions.reduce((acc: any, exec: any) => {
+      const date = new Date(exec.executed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      if (!acc[date]) {
+        acc[date] = { date, mentions: 0, executions: 0, sentiment: 0, sentimentCount: 0 };
+      }
+      acc[date].executions += 1;
+      return acc;
+    }, {});
+
+    mentions.forEach((mention: any) => {
+      const execution = executions.find(e => e.id === mention.execution_id);
+      if (execution && mention.is_user_brand) {
+        const date = new Date(execution.executed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        if (executionsByDate[date]) {
+          executionsByDate[date].mentions += mention.mention_count;
+        }
+      }
+    });
+
+    sentiments.forEach((sentiment: any) => {
+      const execution = executions.find(e => e.id === sentiment.execution_id);
+      if (execution) {
+        const date = new Date(execution.executed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        if (executionsByDate[date]) {
+          executionsByDate[date].sentiment += parseFloat(sentiment.positive_percentage) || 0;
+          executionsByDate[date].sentimentCount += 1;
+        }
+      }
+    });
+
+    const trendDataArray = Object.values(executionsByDate).map((d: any) => ({
+      date: d.date,
+      mentions: d.mentions,
+      executions: d.executions,
+      sentiment: d.sentimentCount > 0 ? Math.round(d.sentiment / d.sentimentCount) : 0,
+    })).reverse().slice(-14);
+
+    setTrendData(trendDataArray);
+
     const allSources: string[] = [];
     executions.forEach((exec: any) => {
       if (exec.sources) {
@@ -163,11 +192,18 @@ export default function Analytics() {
 
   const tabs = [
     { id: 'performance', label: 'Performance', icon: Activity },
-    { id: 'competitive', label: 'Competitive', icon: Users },
-    { id: 'sentiment', label: 'Sentiment', icon: TrendingUp },
-    { id: 'platforms', label: 'Platforms', icon: BarChart3 },
-    { id: 'sources', label: 'Sources', icon: Globe },
     { id: 'trends', label: 'Trends', icon: Target },
+    { id: 'platforms', label: 'Platforms', icon: BarChart3 },
+    { id: 'sentiment', label: 'Sentiment', icon: TrendingUp },
+    { id: 'sources', label: 'Sources', icon: Globe },
+  ];
+
+  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+
+  const sentimentData = [
+    { name: 'Positive', value: metrics?.avg_positive_sentiment || 0, color: '#10b981' },
+    { name: 'Neutral', value: metrics?.avg_neutral_sentiment || 0, color: '#94a3b8' },
+    { name: 'Negative', value: metrics?.avg_negative_sentiment || 0, color: '#ef4444' },
   ];
 
   return (
@@ -294,69 +330,65 @@ export default function Analytics() {
                 </div>
               )}
 
-              {activeTab === 'competitive' && (
+              {activeTab === 'trends' && (
                 <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-slate-900 mb-6">Competitive Analysis</h2>
+                  <h2 className="text-2xl font-bold text-slate-900 mb-6">Trends Over Time</h2>
 
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div className="p-6 bg-gradient-to-br from-blue-50 to-emerald-50 rounded-lg border border-blue-200">
-                      <h3 className="font-semibold text-slate-900 mb-2">Your Brand Mentions</h3>
-                      <div className="text-4xl font-bold text-blue-600 mb-2">{metrics.total_brand_mentions || 0}</div>
-                      <div className="text-sm text-slate-600">Total mentions across all analyses</div>
-                    </div>
+                  {trendData.length > 0 ? (
+                    <>
+                      <div className="bg-gradient-to-br from-blue-50 to-emerald-50 rounded-xl p-6 border border-blue-200">
+                        <h3 className="text-lg font-semibold text-slate-900 mb-4">Brand Mentions Trend</h3>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <AreaChart data={trendData}>
+                            <defs>
+                              <linearGradient id="colorMentions" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                            <XAxis dataKey="date" stroke="#64748b" />
+                            <YAxis stroke="#64748b" />
+                            <Tooltip />
+                            <Area type="monotone" dataKey="mentions" stroke="#3b82f6" fillOpacity={1} fill="url(#colorMentions)" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
 
-                    <div className="p-6 bg-gradient-to-br from-amber-50 to-red-50 rounded-lg border border-amber-200">
-                      <h3 className="font-semibold text-slate-900 mb-2">Competitor Mentions</h3>
-                      <div className="text-4xl font-bold text-amber-600 mb-2">{metrics.total_competitor_mentions || 0}</div>
-                      <div className="text-sm text-slate-600">Total competitor mentions tracked</div>
-                    </div>
-                  </div>
+                      <div className="bg-gradient-to-br from-emerald-50 to-amber-50 rounded-xl p-6 border border-emerald-200">
+                        <h3 className="text-lg font-semibold text-slate-900 mb-4">Sentiment Score Trend</h3>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <LineChart data={trendData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                            <XAxis dataKey="date" stroke="#64748b" />
+                            <YAxis stroke="#64748b" domain={[0, 100]} />
+                            <Tooltip />
+                            <Legend />
+                            <Line type="monotone" dataKey="sentiment" stroke="#10b981" strokeWidth={2} name="Sentiment %" />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
 
-                  {metrics.top_competitor && (
-                    <div className="p-6 bg-white rounded-lg border-2 border-slate-200">
-                      <h3 className="font-semibold text-slate-900 mb-2">Top Competitor</h3>
-                      <div className="text-2xl font-bold text-slate-900">{metrics.top_competitor}</div>
-                      <div className="text-sm text-slate-600 mt-2">Leading competitor by mention count</div>
+                      <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200">
+                        <h3 className="text-lg font-semibold text-slate-900 mb-4">Analysis Activity</h3>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={trendData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                            <XAxis dataKey="date" stroke="#64748b" />
+                            <YAxis stroke="#64748b" />
+                            <Tooltip />
+                            <Legend />
+                            <Bar dataKey="executions" fill="#8b5cf6" name="Analyses Run" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-12 text-slate-500">
+                      <p>Not enough data to show trends yet.</p>
+                      <p className="text-sm mt-2">Run more analyses over time to see trend data.</p>
                     </div>
                   )}
-                </div>
-              )}
-
-              {activeTab === 'sentiment' && (
-                <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-slate-900 mb-6">Sentiment Analysis</h2>
-
-                  <div className="grid md:grid-cols-3 gap-6">
-                    <div className="text-center p-6 bg-green-50 rounded-lg border-2 border-green-200">
-                      <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
-                        <span className="text-3xl font-bold text-green-700">
-                          {metrics.avg_positive_sentiment?.toFixed(0) || 0}%
-                        </span>
-                      </div>
-                      <h3 className="font-semibold text-slate-900 mb-1">Positive</h3>
-                      <p className="text-sm text-slate-600">Average positive sentiment</p>
-                    </div>
-
-                    <div className="text-center p-6 bg-slate-50 rounded-lg border-2 border-slate-200">
-                      <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center">
-                        <span className="text-3xl font-bold text-slate-700">
-                          {metrics.avg_neutral_sentiment?.toFixed(0) || 0}%
-                        </span>
-                      </div>
-                      <h3 className="font-semibold text-slate-900 mb-1">Neutral</h3>
-                      <p className="text-sm text-slate-600">Average neutral sentiment</p>
-                    </div>
-
-                    <div className="text-center p-6 bg-red-50 rounded-lg border-2 border-red-200">
-                      <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
-                        <span className="text-3xl font-bold text-red-700">
-                          {metrics.avg_negative_sentiment?.toFixed(0) || 0}%
-                        </span>
-                      </div>
-                      <h3 className="font-semibold text-slate-900 mb-1">Negative</h3>
-                      <p className="text-sm text-slate-600">Average negative sentiment</p>
-                    </div>
-                  </div>
                 </div>
               )}
 
@@ -370,34 +402,127 @@ export default function Analytics() {
                       <p className="text-sm mt-2">Run analyses on different platforms to see performance breakdown.</p>
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      {platforms.map((platform, index) => (
-                        <div key={index} className="p-5 bg-slate-50 rounded-lg border border-slate-200 hover:shadow-md transition-all">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                                <span className="font-bold text-blue-600">{platform.name.charAt(0)}</span>
-                              </div>
-                              <div>
-                                <h3 className="font-semibold text-slate-900">{platform.name}</h3>
-                                <p className="text-sm text-slate-600">{platform.mentions} mentions</p>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-2xl font-bold text-slate-900">{platform.visibility}%</div>
-                              <div className="text-sm text-slate-600">Visibility</div>
-                            </div>
-                          </div>
-                          <div className="flex gap-4 text-sm">
-                            <div>
-                              <span className="text-slate-600">Sentiment: </span>
-                              <span className="font-semibold text-slate-900">{platform.sentiment.toFixed(1)}/10</span>
-                            </div>
-                          </div>
+                    <>
+                      <div className="grid md:grid-cols-2 gap-6">
+                        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
+                          <h3 className="text-lg font-semibold text-slate-900 mb-4">Brand Mentions by Platform</h3>
+                          <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={platforms}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                              <XAxis dataKey="name" stroke="#64748b" />
+                              <YAxis stroke="#64748b" />
+                              <Tooltip />
+                              <Bar dataKey="mentions" fill="#3b82f6" />
+                            </BarChart>
+                          </ResponsiveContainer>
                         </div>
-                      ))}
-                    </div>
+
+                        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl p-6 border border-emerald-200">
+                          <h3 className="text-lg font-semibold text-slate-900 mb-4">Sentiment by Platform</h3>
+                          <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={platforms}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                              <XAxis dataKey="name" stroke="#64748b" />
+                              <YAxis stroke="#64748b" domain={[0, 100]} />
+                              <Tooltip />
+                              <Bar dataKey="sentiment" fill="#10b981" />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        {platforms.map((platform, index) => (
+                          <div key={index} className="p-5 bg-slate-50 rounded-lg border border-slate-200 hover:shadow-md transition-all">
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                  <span className="font-bold text-blue-600">{platform.name.charAt(0)}</span>
+                                </div>
+                                <div>
+                                  <h3 className="font-semibold text-slate-900">{platform.name}</h3>
+                                  <p className="text-sm text-slate-600">{platform.mentions} mentions in {platform.executions} analyses</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-2xl font-bold text-slate-900">{platform.visibility}%</div>
+                                <div className="text-sm text-slate-600">Visibility</div>
+                              </div>
+                            </div>
+                            <div className="flex gap-4 text-sm">
+                              <div>
+                                <span className="text-slate-600">Sentiment: </span>
+                                <span className="font-semibold text-slate-900">{platform.avgSentiment}%</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
                   )}
+                </div>
+              )}
+
+              {activeTab === 'sentiment' && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold text-slate-900 mb-6">Sentiment Analysis</h2>
+
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-6 border border-slate-200">
+                      <h3 className="text-lg font-semibold text-slate-900 mb-4">Sentiment Distribution</h3>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                          <Pie
+                            data={sentimentData}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={(entry) => `${entry.name}: ${entry.value.toFixed(0)}%`}
+                            outerRadius={100}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            {sentimentData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="text-center p-6 bg-green-50 rounded-lg border-2 border-green-200">
+                        <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
+                          <span className="text-3xl font-bold text-green-700">
+                            {metrics.avg_positive_sentiment?.toFixed(0) || 0}%
+                          </span>
+                        </div>
+                        <h3 className="font-semibold text-slate-900 mb-1">Positive</h3>
+                        <p className="text-sm text-slate-600">Average positive sentiment</p>
+                      </div>
+
+                      <div className="text-center p-6 bg-slate-50 rounded-lg border-2 border-slate-200">
+                        <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center">
+                          <span className="text-3xl font-bold text-slate-700">
+                            {metrics.avg_neutral_sentiment?.toFixed(0) || 0}%
+                          </span>
+                        </div>
+                        <h3 className="font-semibold text-slate-900 mb-1">Neutral</h3>
+                        <p className="text-sm text-slate-600">Average neutral sentiment</p>
+                      </div>
+
+                      <div className="text-center p-6 bg-red-50 rounded-lg border-2 border-red-200">
+                        <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
+                          <span className="text-3xl font-bold text-red-700">
+                            {metrics.avg_negative_sentiment?.toFixed(0) || 0}%
+                          </span>
+                        </div>
+                        <h3 className="font-semibold text-slate-900 mb-1">Negative</h3>
+                        <p className="text-sm text-slate-600">Average negative sentiment</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -529,52 +654,6 @@ export default function Analytics() {
                       </div>
                     </>
                   )}
-                </div>
-              )}
-
-              {activeTab === 'trends' && (
-                <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-slate-900 mb-6">Trends & Insights</h2>
-
-                  <div className="p-6 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h3 className="font-semibold text-blue-900 mb-3">Recent Activity</h3>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-blue-800">Total Executions:</span>
-                        <span className="font-bold text-blue-900">{metrics.total_executions || 0}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-blue-800">Platforms Used:</span>
-                        <span className="font-bold text-blue-900">{metrics.platform_coverage || 0}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-blue-800">Last Updated:</span>
-                        <span className="font-bold text-blue-900">
-                          {metrics.updated_at ? new Date(metrics.updated_at).toLocaleDateString() : 'N/A'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div className="p-6 bg-white rounded-lg border-2 border-slate-200">
-                      <h3 className="font-semibold text-slate-900 mb-4">Key Insight</h3>
-                      <p className="text-slate-700">
-                        Your brand has a <span className="font-bold text-blue-600">{metrics.share_of_voice?.toFixed(1)}%</span> share of voice
-                        across {metrics.platform_coverage || 0} AI platforms with an average sentiment score of{' '}
-                        <span className="font-bold text-emerald-600">{metrics.avg_sentiment_score?.toFixed(1)}</span>.
-                      </p>
-                    </div>
-
-                    <div className="p-6 bg-white rounded-lg border-2 border-slate-200">
-                      <h3 className="font-semibold text-slate-900 mb-4">Recommendation</h3>
-                      <p className="text-slate-700">
-                        {metrics.competitive_rank > 3
-                          ? 'Focus on improving brand visibility by targeting high-impact prompts and optimizing content for AI responses.'
-                          : 'Great performance! Continue monitoring competitor activity and maintain your strong positioning.'}
-                      </p>
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
