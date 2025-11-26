@@ -13,24 +13,35 @@ async function resolveVertexAIUrl(url: string): Promise<string> {
   }
 
   try {
-    console.log('[resolveVertexAIUrl] Resolving Vertex AI redirect URL:', url.substring(0, 80) + '...');
+    console.log('[resolveVertexAIUrl] Resolving Vertex AI redirect URL:', url.substring(0, 100) + '...');
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     const response = await fetch(url, {
-      method: 'HEAD',
+      method: 'GET',
       redirect: 'follow',
       signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
     });
 
     clearTimeout(timeoutId);
 
     const resolvedUrl = response.url;
+    console.log('[resolveVertexAIUrl] Original:', url.substring(0, 100) + '...');
     console.log('[resolveVertexAIUrl] Resolved to:', resolvedUrl);
-    return resolvedUrl;
+
+    if (resolvedUrl && resolvedUrl !== url && !resolvedUrl.includes('vertexaisearch.cloud.google.com')) {
+      return resolvedUrl;
+    }
+
+    console.log('[resolveVertexAIUrl] Resolution did not change URL or still has redirect domain');
+    return url;
   } catch (error: any) {
     console.error('[resolveVertexAIUrl] Failed to resolve URL:', error.message);
+    console.error('[resolveVertexAIUrl] Error details:', error);
     return url;
   }
 }
