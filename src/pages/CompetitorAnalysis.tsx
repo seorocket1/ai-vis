@@ -13,7 +13,7 @@ interface Competitor {
 }
 
 type DateRange = 'today' | '3days' | '7days' | '14days' | '30days' | 'all';
-type MetricType = 'mentions' | 'shareOfVoice' | 'appearances' | 'avgPerAnalysis';
+type MetricType = 'mentions' | 'shareOfVoice' | 'appearances' | 'brandCoverage';
 
 export default function CompetitorAnalysis() {
   const { user } = useAuth();
@@ -110,13 +110,13 @@ export default function CompetitorAnalysis() {
       name: userBrand,
       mentionCount: brandMentionCount,
       appearances: mentions.filter(m => m.is_user_brand).length,
-      avgMentionsPerAnalysis: totalExecutions > 0 ? parseFloat((brandMentionCount / totalExecutions).toFixed(2)) : 0,
+      brandCoverage: totalExecutions > 0 ? parseFloat(((mentions.filter(m => m.is_user_brand).length / totalExecutions) * 100).toFixed(1)) : 0,
       sentiment: avgBrandSentiment,
     });
 
     const competitors = Object.values(competitorGroups).map(comp => ({
       ...comp,
-      avgMentionsPerAnalysis: totalExecutions > 0 ? parseFloat((comp.mentionCount / totalExecutions).toFixed(2)) : 0,
+      brandCoverage: totalExecutions > 0 ? parseFloat(((comp.appearances / totalExecutions) * 100).toFixed(1)) : 0,
       sentiment: avgBrandSentiment,
     })).sort((a, b) => b.mentionCount - a.mentionCount);
 
@@ -172,8 +172,8 @@ export default function CompetitorAnalysis() {
         return totalMentionsForCalc > 0 ? parseFloat(((brand.mentionCount / totalMentionsForCalc) * 100).toFixed(1)) : 0;
       case 'appearances':
         return brand.appearances;
-      case 'avgPerAnalysis':
-        return brand.avgMentionsPerAnalysis;
+      case 'brandCoverage':
+        return brand.brandCoverage;
       default:
         return brand.mentionCount;
     }
@@ -187,8 +187,8 @@ export default function CompetitorAnalysis() {
         return 'Share of Voice (%)';
       case 'appearances':
         return 'Appearances';
-      case 'avgPerAnalysis':
-        return 'Avg per Analysis';
+      case 'brandCoverage':
+        return 'Brand Coverage (%)';
       default:
         return 'Total Mentions';
     }
@@ -214,7 +214,7 @@ export default function CompetitorAnalysis() {
     { value: 'mentions', label: 'Total Mentions', icon: '📊' },
     { value: 'shareOfVoice', label: 'Share of Voice', icon: '📢' },
     { value: 'appearances', label: 'Appearances', icon: '👁️' },
-    { value: 'avgPerAnalysis', label: 'Avg per Analysis', icon: '📈' },
+    { value: 'brandCoverage', label: 'Brand Coverage', icon: '📈' },
   ];
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'];
@@ -281,8 +281,8 @@ export default function CompetitorAnalysis() {
                     <p className="text-3xl font-bold text-slate-900">{brandData.mentionCount}</p>
                   </div>
                   <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-100">
-                    <p className="text-xs text-slate-500 mb-2 uppercase tracking-wide font-medium">Avg per Analysis</p>
-                    <p className="text-3xl font-bold text-slate-900">{brandData.avgMentionsPerAnalysis}</p>
+                    <p className="text-xs text-slate-500 mb-2 uppercase tracking-wide font-medium">Brand Coverage</p>
+                    <p className="text-3xl font-bold text-slate-900">{brandData.brandCoverage}%</p>
                   </div>
                   <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-100">
                     <p className="text-xs text-slate-500 mb-2 uppercase tracking-wide font-medium">Sentiment Score</p>
@@ -410,7 +410,7 @@ export default function CompetitorAnalysis() {
                   <th className="text-left py-4 px-4 text-sm font-semibold text-slate-700 uppercase tracking-wide">Rank</th>
                   <th className="text-left py-4 px-4 text-sm font-semibold text-slate-700 uppercase tracking-wide">Brand</th>
                   <th className="text-center py-4 px-4 text-sm font-semibold text-slate-700 uppercase tracking-wide">Total Mentions</th>
-                  <th className="text-center py-4 px-4 text-sm font-semibold text-slate-700 uppercase tracking-wide">Avg/Analysis</th>
+                  <th className="text-center py-4 px-4 text-sm font-semibold text-slate-700 uppercase tracking-wide">Coverage</th>
                   <th className="text-center py-4 px-4 text-sm font-semibold text-slate-700 uppercase tracking-wide">Appearances</th>
                   <th className="text-center py-4 px-4 text-sm font-semibold text-slate-700 uppercase tracking-wide">Share of Voice</th>
                   <th className="text-center py-4 px-4 text-sm font-semibold text-slate-700 uppercase tracking-wide">Gap</th>
@@ -457,7 +457,7 @@ export default function CompetitorAnalysis() {
                         </div>
                       </td>
                       <td className="py-5 px-4 text-center font-bold text-slate-900 text-base">{brand.mentionCount}</td>
-                      <td className="py-5 px-4 text-center text-slate-600 font-medium">{brand.avgMentionsPerAnalysis}</td>
+                      <td className="py-5 px-4 text-center text-slate-600 font-medium">{brand.brandCoverage}%</td>
                       <td className="py-5 px-4 text-center text-slate-600 font-medium">{brand.appearances}</td>
                       <td className="py-5 px-4 text-center">
                         <div className="flex items-center justify-center gap-3">
