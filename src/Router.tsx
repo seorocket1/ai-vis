@@ -7,6 +7,7 @@ import OnboardingNew from './pages/OnboardingNew';
 import Dashboard from './pages/Dashboard';
 import Prompts from './pages/Prompts';
 import TriggerPrompt from './pages/TriggerPrompt';
+import NewPrompt from './pages/NewPrompt';
 import ExecutionDetail from './pages/ExecutionDetail';
 import Analytics from './pages/Analytics';
 import CompetitorAnalysis from './pages/CompetitorAnalysis';
@@ -91,6 +92,14 @@ export default function Router() {
     return (
       <ProtectedRoute>
         <Prompts />
+      </ProtectedRoute>
+    );
+  }
+
+  if (currentPath === '/prompts/new') {
+    return (
+      <ProtectedRoute>
+        <NewPrompt />
       </ProtectedRoute>
     );
   }

@@ -550,20 +550,15 @@ export default function Prompts() {
                 <Upload className="w-5 h-5" />
                 Bulk Upload
               </button>
-              <button
-                onClick={() => {
+              <a
+                href={promptLimit.allowed ? '/prompts/new' : '#'}
+                onClick={(e) => {
                   if (!promptLimit.allowed) {
+                    e.preventDefault();
                     alert(`You've reached your plan's limit of ${promptLimit.limit} prompts. ${promptLimit.limit === 5 ? 'Upgrade to Pro for 50 prompts!' : 'Please delete some prompts to add new ones.'}`);
                     return;
                   }
-                  setEditingPrompt(null);
-                  setNewPromptText('');
-                  setNewPromptFrequency('weekly');
-                  setNewPromptPlatform('gemini');
-                  setIsBulkMode(false);
-                  setShowModal(true);
                 }}
-                disabled={!promptLimit.allowed}
                 className={`px-6 py-3 rounded-lg transition-all flex items-center gap-2 font-medium shadow-lg ${
                   promptLimit.allowed
                     ? 'bg-gradient-to-r from-blue-600 to-emerald-600 text-white hover:from-blue-700 hover:to-emerald-700 hover:shadow-xl'
@@ -572,7 +567,7 @@ export default function Prompts() {
               >
                 <Plus className="w-5 h-5" />
                 Add New Prompt {!promptLimit.allowed && `(${promptLimit.current}/${promptLimit.limit})`}
-              </button>
+              </a>
             </div>
           </div>
         </div>
