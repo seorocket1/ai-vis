@@ -435,27 +435,22 @@ export default function Prompts() {
       return;
     }
 
-    // Calculate total prompts to be created (lines * platforms)
-    const totalPromptsToCreate = lines.length * bulkPlatforms.length;
+    // Calculate total prompts to be created (just the number of lines)
+    const totalPromptsToCreate = lines.length;
 
     if (promptLimit.current + totalPromptsToCreate > promptLimit.limit) {
-      alert(`Cannot add ${totalPromptsToCreate} prompts (${lines.length} texts × ${bulkPlatforms.length} platforms). You have ${promptLimit.current}/${promptLimit.limit} prompts. ${promptLimit.limit === 5 ? 'Upgrade to Pro for 50 prompts!' : `You can only add ${promptLimit.limit - promptLimit.current} more.`}`);
+      alert(`Cannot add ${totalPromptsToCreate} prompts. You have ${promptLimit.current}/${promptLimit.limit} prompts. ${promptLimit.limit === 5 ? 'Upgrade to Pro for 50 prompts!' : `You can only add ${promptLimit.limit - promptLimit.current} more.`}`);
       return;
     }
 
-    // Create prompts for each line and each selected platform
-    const promptsToInsert = [];
-    for (const line of lines) {
-      for (const platform of bulkPlatforms) {
-        promptsToInsert.push({
-          user_id: user.id,
-          text: line.trim(),
-          frequency: newPromptFrequency,
-          platform: platform,
-          is_active: true,
-        });
-      }
-    }
+    // Create one prompt per line (platform will be used during execution)
+    const promptsToInsert = lines.map(line => ({
+      user_id: user.id,
+      text: line.trim(),
+      frequency: newPromptFrequency,
+      platform: null, // No specific platform - will run on all selected platforms
+      is_active: true,
+    }));
 
     const { data, error } = await supabase.from('prompts').insert(promptsToInsert).select();
 
@@ -472,11 +467,74 @@ export default function Prompts() {
     // Reload data first to show the new prompts
     await loadData();
 
-    // Auto-trigger analysis for all new prompts using bulk trigger
+    // Auto-trigger analysis for all new prompts on all selected platforms
     if (data && data.length > 0) {
-      console.log('Bulk upload: Triggering analysis for', data.length, 'prompts');
-      const promptIds = data.map(p => p.id);
-      await triggerBulkPrompts(promptIds);
+      console.log('Bulk upload: Triggering analysis for', data.length, 'prompts on', bulkPlatforms.length, 'platforms');
+
+      // Create execution records for each prompt on each selected platform
+      const executionsToCreate = [];
+      for (const prompt of data) {
+        for (const platform of bulkPlatforms) {
+          const platformMap: Record<string, string> = {
+            'gemini': 'Gemini',
+            'chatgpt': 'ChatGPT',
+            'perplexity': 'Perplexity',
+            'aio': 'AI Overview'
+          };
+          const modelName = platformMap[platform] || 'Gemini';
+
+          executionsToCreate.push({
+            prompt_id: prompt.id,
+            user_id: user.id,
+            model: modelName,
+            platform: platform,
+            status: 'processing',
+          });
+        }
+      }
+
+      // Create all execution records
+      const { data: executions } = await supabase
+        .from('prompt_executions')
+        .insert(executionsToCreate)
+        .select();
+
+      if (executions && executions.length > 0) {
+        // Update last triggered for all prompts
+        const promptIds = data.map(p => p.id);
+        await supabase
+          .from('prompts')
+          .update({ last_triggered_at: new Date().toISOString() })
+          .in('id', promptIds);
+
+        // Trigger n8n webhooks for each execution
+        const n8nWebhookUrl = 'https://n8n.seoengine.agency/webhook/84366642-2502-4684-baac-18e950410124';
+
+        for (const execution of executions) {
+          const prompt = data.find(p => p.id === execution.prompt_id);
+          if (!prompt || !profile?.brand_name) continue;
+
+          try {
+            await fetch(n8nWebhookUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                Model: execution.model,
+                Platform: execution.platform,
+                Prompt: prompt.text,
+                Brand: profile.brand_name,
+                executionId: execution.id,
+              }),
+            });
+          } catch (error) {
+            console.error('Error calling n8n webhook:', error);
+            await supabase
+              .from('prompt_executions')
+              .update({ status: 'failed' })
+              .eq('id', execution.id);
+          }
+        }
+      }
 
       // Reload again to show processing state
       await loadData();
