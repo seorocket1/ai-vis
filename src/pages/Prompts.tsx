@@ -75,16 +75,24 @@ export default function Prompts() {
 
       const executionIds = completedExecs.map((e: any) => e.id);
       let brandMentionsMap: Record<string, any[]> = {};
+      let sentimentData = null;
 
       if (executionIds.length > 0) {
-        const { data: mentions } = await supabase
-          .from('brand_mentions')
-          .select('*, prompt_executions!inner(platform)')
-          .in('execution_id', executionIds)
-          .eq('is_user_brand', true);
+        const [mentionsResult, sentimentResult] = await Promise.all([
+          supabase
+            .from('brand_mentions')
+            .select('*, prompt_executions!inner(platform)')
+            .in('execution_id', executionIds)
+            .eq('is_user_brand', true),
+          supabase
+            .from('sentiment_analysis')
+            .select('*')
+            .eq('execution_id', latestExecution?.id || '')
+            .maybeSingle()
+        ]);
 
-        if (mentions) {
-          mentions.forEach(m => {
+        if (mentionsResult.data) {
+          mentionsResult.data.forEach(m => {
             const platform = (m as any).prompt_executions?.platform || 'gemini';
             if (!brandMentionsMap[platform]) {
               brandMentionsMap[platform] = [];
@@ -92,13 +100,16 @@ export default function Prompts() {
             brandMentionsMap[platform].push(m);
           });
         }
+
+        sentimentData = sentimentResult.data;
       }
 
       return {
         ...prompt,
         latestExecution,
         allExecutions: executions,
-        brandMentionsByPlatform: brandMentionsMap
+        brandMentionsByPlatform: brandMentionsMap,
+        sentiment: sentimentData
       };
     }));
 
@@ -774,30 +785,29 @@ export default function Prompts() {
                           const mentions = response.brandAndCompetitorMentions;
                           brandMentioned = (mentions[profile.brand_name] || 0) > 0;
                         }
-
-                        if (response?.overallSentiment) {
-                          const sentiment = response.overallSentiment;
-                          const parsePercent = (val: string) => parseFloat(val.replace('%', '')) || 0;
-                          const pos = parsePercent(sentiment.Positive);
-                          const neu = parsePercent(sentiment.Neutral);
-                          const neg = parsePercent(sentiment.Negative);
-
-                          if (pos >= neu && pos >= neg) {
-                            sentimentLabel = 'Positive';
-                            sentimentColor = 'bg-green-100 text-green-700';
-                            dotColor = 'bg-green-500';
-                          } else if (neu >= pos && neu >= neg) {
-                            sentimentLabel = 'Neutral';
-                            sentimentColor = 'bg-slate-100 text-slate-600';
-                            dotColor = 'bg-slate-400';
-                          } else {
-                            sentimentLabel = 'Negative';
-                            sentimentColor = 'bg-red-100 text-red-700';
-                            dotColor = 'bg-red-500';
-                          }
-                        }
                       } catch (e) {
                         // Skip invalid JSON
+                      }
+                    }
+
+                    // Get sentiment from sentiment_analysis table
+                    if (prompt.sentiment) {
+                      const pos = parseFloat(prompt.sentiment.positive_percentage) || 0;
+                      const neu = parseFloat(prompt.sentiment.neutral_percentage) || 0;
+                      const neg = parseFloat(prompt.sentiment.negative_percentage) || 0;
+
+                      if (pos >= neu && pos >= neg) {
+                        sentimentLabel = `Positive ${Math.round(pos)}%`;
+                        sentimentColor = 'bg-green-100 text-green-700';
+                        dotColor = 'bg-green-500';
+                      } else if (neu >= pos && neu >= neg) {
+                        sentimentLabel = `Neutral ${Math.round(neu)}%`;
+                        sentimentColor = 'bg-slate-100 text-slate-600';
+                        dotColor = 'bg-slate-400';
+                      } else {
+                        sentimentLabel = `Negative ${Math.round(neg)}%`;
+                        sentimentColor = 'bg-red-100 text-red-700';
+                        dotColor = 'bg-red-500';
                       }
                     }
 
