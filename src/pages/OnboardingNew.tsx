@@ -196,9 +196,9 @@ export default function OnboardingNew() {
         });
       }
 
-      // Redirect immediately to dashboard
+      // Redirect immediately to dashboard with a full page reload to refresh auth state
       setLoading(false);
-      window.location.href = '/dashboard';
+      window.location.replace('/dashboard');
     } catch (err) {
       console.error('Onboarding error:', err);
       setError('Failed to complete setup. Please try again.');
