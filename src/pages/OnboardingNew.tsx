@@ -118,43 +118,25 @@ export default function OnboardingNew() {
     setError('');
 
     try {
-      // Save profile
-      const { data: existingProfile } = await supabase
+      // Save profile using upsert to handle both new and existing profiles
+      const { error: profileError } = await supabase
         .from('profiles')
-        .select('id')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (!existingProfile) {
-        const { error: profileError } = await supabase.from('profiles').insert({
+        .upsert({
           id: user.id,
           email: user.email!,
           website_url: website,
           brand_name: brandName,
           location: location,
           onboarding_completed: true,
+        }, {
+          onConflict: 'id'
         });
 
-        if (profileError) {
-          console.error('Profile creation error:', profileError);
-          setError(`Failed to save profile: ${profileError.message}`);
-          setLoading(false);
-          return;
-        }
-      } else {
-        const { error: updateError } = await supabase.from('profiles').update({
-          website_url: website,
-          brand_name: brandName,
-          location: location,
-          onboarding_completed: true,
-        }).eq('id', user.id);
-
-        if (updateError) {
-          console.error('Profile update error:', updateError);
-          setError(`Failed to update profile: ${updateError.message}`);
-          setLoading(false);
-          return;
-        }
+      if (profileError) {
+        console.error('Profile save error:', profileError);
+        setError(`Failed to save profile: ${profileError.message}`);
+        setLoading(false);
+        return;
       }
 
       // Save selected prompts
