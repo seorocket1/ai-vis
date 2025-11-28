@@ -126,7 +126,7 @@ export default function OnboardingNew() {
         .maybeSingle();
 
       if (!existingProfile) {
-        await supabase.from('profiles').insert({
+        const { error: profileError } = await supabase.from('profiles').insert({
           id: user.id,
           email: user.email!,
           website_url: website,
@@ -134,13 +134,27 @@ export default function OnboardingNew() {
           location: location,
           onboarding_completed: true,
         });
+
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          setError(`Failed to save profile: ${profileError.message}`);
+          setLoading(false);
+          return;
+        }
       } else {
-        await supabase.from('profiles').update({
+        const { error: updateError } = await supabase.from('profiles').update({
           website_url: website,
           brand_name: brandName,
           location: location,
           onboarding_completed: true,
         }).eq('id', user.id);
+
+        if (updateError) {
+          console.error('Profile update error:', updateError);
+          setError(`Failed to update profile: ${updateError.message}`);
+          setLoading(false);
+          return;
+        }
       }
 
       // Save selected prompts
@@ -196,7 +210,10 @@ export default function OnboardingNew() {
         });
       }
 
-      // Redirect immediately to dashboard with a full page reload to refresh auth state
+      // Small delay to ensure database transaction is committed
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Redirect to dashboard with a full page reload to refresh auth state
       setLoading(false);
       window.location.replace('/dashboard');
     } catch (err) {
