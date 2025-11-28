@@ -95,6 +95,8 @@ export interface Database {
           text: string
           is_active: boolean
           frequency: string
+          platform: string | null
+          location: string | null
           last_triggered_at: string | null
           created_at: string
           updated_at: string
@@ -105,6 +107,8 @@ export interface Database {
           text: string
           is_active?: boolean
           frequency?: string
+          platform?: string | null
+          location?: string | null
           last_triggered_at?: string | null
           created_at?: string
           updated_at?: string
@@ -115,6 +119,8 @@ export interface Database {
           text?: string
           is_active?: boolean
           frequency?: string
+          platform?: string | null
+          location?: string | null
           last_triggered_at?: string | null
           created_at?: string
           updated_at?: string
@@ -127,7 +133,10 @@ export interface Database {
           user_id: string
           model: string
           status: string
+          platform: string
           ai_response: string | null
+          sources: Json | null
+          error_message: string | null
           executed_at: string
           completed_at: string | null
         }
@@ -137,7 +146,10 @@ export interface Database {
           user_id: string
           model: string
           status?: string
+          platform?: string
           ai_response?: string | null
+          sources?: Json | null
+          error_message?: string | null
           executed_at?: string
           completed_at?: string | null
         }
@@ -147,7 +159,10 @@ export interface Database {
           user_id?: string
           model?: string
           status?: string
+          platform?: string
           ai_response?: string | null
+          sources?: Json | null
+          error_message?: string | null
           executed_at?: string
           completed_at?: string | null
         }
