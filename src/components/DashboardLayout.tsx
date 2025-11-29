@@ -16,6 +16,7 @@ import {
   ChevronUp,
   Sparkles,
   Globe,
+  Trophy,
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -77,6 +78,7 @@ export default function DashboardLayout({ children, currentPage }: DashboardLayo
     { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', id: 'dashboard' },
     { icon: Target, label: 'Prompts', href: '/prompts', id: 'prompts' },
     { icon: BarChart3, label: 'Analytics', href: '/analytics', id: 'analytics' },
+    { icon: Trophy, label: 'Industry Ranking', href: '/industry-ranking', id: 'industry-ranking' },
     { icon: Globe, label: 'Sources', href: '/sources', id: 'sources' },
     { icon: Users, label: 'Competitor Analysis', href: '/competitor-analysis', id: 'competitor-analysis' },
     { icon: Settings, label: 'Settings', href: '/settings', id: 'settings' },

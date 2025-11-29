@@ -21,6 +21,7 @@ import ChatGPTAnalytics from './pages/ChatGPTAnalytics';
 import PerplexityAnalytics from './pages/PerplexityAnalytics';
 import AIOverviewAnalytics from './pages/AIOverviewAnalytics';
 import Sources from './pages/Sources';
+import IndustryRanking from './pages/IndustryRanking';
 import ProtectedRoute from './components/ProtectedRoute';
 
 export default function Router() {
@@ -188,6 +189,14 @@ export default function Router() {
     return (
       <ProtectedRoute>
         <Sources />
+      </ProtectedRoute>
+    );
+  }
+
+  if (currentPath === '/industry-ranking') {
+    return (
+      <ProtectedRoute>
+        <IndustryRanking />
       </ProtectedRoute>
     );
   }
